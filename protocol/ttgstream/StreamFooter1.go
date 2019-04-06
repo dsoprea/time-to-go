@@ -82,21 +82,12 @@ func (rcv *StreamFooter1) OriginalFilename() []byte {
 	return nil
 }
 
-func (rcv *StreamFooter1) SourceSha1(j int) int8 {
+func (rcv *StreamFooter1) SourceSha1() []byte {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(14))
 	if o != 0 {
-		a := rcv._tab.Vector(o)
-		return rcv._tab.GetInt8(a + flatbuffers.UOffsetT(j*1))
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
 	}
-	return 0
-}
-
-func (rcv *StreamFooter1) SourceSha1Length() int {
-	o := flatbuffers.UOffsetT(rcv._tab.Offset(14))
-	if o != 0 {
-		return rcv._tab.VectorLen(o)
-	}
-	return 0
+	return nil
 }
 
 func (rcv *StreamFooter1) DataFnv1aChecksum() uint32 {
@@ -131,9 +122,6 @@ func StreamFooter1AddOriginalFilename(builder *flatbuffers.Builder, originalFile
 }
 func StreamFooter1AddSourceSha1(builder *flatbuffers.Builder, sourceSha1 flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(5, flatbuffers.UOffsetT(sourceSha1), 0)
-}
-func StreamFooter1StartSourceSha1Vector(builder *flatbuffers.Builder, numElems int) flatbuffers.UOffsetT {
-	return builder.StartVector(1, numElems, 1)
 }
 func StreamFooter1AddDataFnv1aChecksum(builder *flatbuffers.Builder, dataFnv1aChecksum uint32) {
 	builder.PrependUint32Slot(6, dataFnv1aChecksum, 0)

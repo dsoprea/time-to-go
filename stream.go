@@ -16,6 +16,41 @@ var (
     streamLogger = log.NewLogger("timetogo.stream")
 )
 
+type StreamFooterVersion uint16
+
+// StreamFooterVersion enum
+const (
+    StreamFooterVersion1 StreamFooterVersion = 1
+)
+
+// SeriesMetadata describes data derived from a stream footer.
+type SeriesMetadata interface {
+    // HeadRecordEpoch is the timestamp of the first record
+    HeadRecordEpoch() uint64
+
+    // TailRecordEpoch is the timestamp of the last record
+    TailRecordEpoch() uint64
+
+    // BytesLength() is the number of bytes occupied on-disk
+    BytesLength() uint64
+
+    // RecordCount is the number of records in the list
+    RecordCount() uint64
+
+    // OriginalFilename is the filename of the source-data
+    OriginalFilename() string
+
+    // SourceSha1 is the SHA1 of the raw source-data; can be used to determine
+    // if the source-data has changed
+    SourceSha1() []byte
+
+    // DataFnv1aChecksum is the FNV-1a checksum of the time-series data on-disk
+    DataFnv1aChecksum() uint32
+
+    // Version returns the version of the footer.
+    Version() StreamFooterVersion
+}
+
 type StreamReader struct {
     rs io.ReadSeeker
 }
@@ -29,7 +64,7 @@ func NewStreamReader(rs io.ReadSeeker) *StreamReader {
 // readFooter will read the footer for the current series. When this returns,
 // the current position will be the last byte of the time-series that precedes
 // the footer. The last byte will always be a NUL.
-func (sr *StreamReader) readFooter() (sf interface{}, err error) {
+func (sr *StreamReader) readFooter() (sm SeriesMetadata, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
@@ -57,7 +92,7 @@ func (sr *StreamReader) readFooter() (sf interface{}, err error) {
     shadowPosition, err := sr.rs.Seek(-shadowFooterSize-1, os.SEEK_END)
     log.PanicIf(err)
 
-    var footerVersion uint16
+    var footerVersion StreamFooterVersion
     err = binary.Read(sr.rs, binary.LittleEndian, &footerVersion)
     log.PanicIf(err)
 
@@ -84,9 +119,9 @@ func (sr *StreamReader) readFooter() (sf interface{}, err error) {
     switch footerVersion {
     case 1:
         sfEncoded := ttgstream.GetRootAsStreamFooter1(footerBytes, 0)
-        sf := NewStreamFooter1FromEncoded(sfEncoded)
+        sm := NewStreamFooter1FromEncoded(sfEncoded)
 
-        return sf, nil
+        return sm, nil
     }
 
     log.Panicf("footer version not valid (%d)", footerVersion)

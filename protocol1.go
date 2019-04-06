@@ -8,17 +8,19 @@ import (
     "github.com/dsoprea/time-to-go/protocol/ttgstream"
 )
 
+// TODO(dustin): !! Rename all "stream footer" stuff to "series footer"?
+
 type StreamFooter1 struct {
-    headRecordEpoch   uint64   // The timestamp of the first record
-    tailRecordEpoch   uint64   // The timestamp of the last record
-    bytesLength       uint64   // The number of bytes occupied on-disk
-    recordCount       uint64   // The number of records in the list
-    originalFilename  string   // The filename of the source-data
-    sourceSha1        [20]byte // SHA1 of the raw source-data; can be used to determine if the source-data has changed
-    dataFnv1aChecksum uint32   // FNV-1a checksum of the time-series data on-disk
+    headRecordEpoch   uint64 // The timestamp of the first record
+    tailRecordEpoch   uint64 // The timestamp of the last record
+    bytesLength       uint64 // The number of bytes occupied on-disk
+    recordCount       uint64 // The number of records in the list
+    originalFilename  string // The filename of the source-data
+    sourceSha1        []byte // SHA1 of the raw source-data; can be used to determine if the source-data has changed
+    dataFnv1aChecksum uint32 // FNV-1a checksum of the time-series data on-disk
 }
 
-func NewStreamFooter1(headRecordEpoch, tailRecordEpoch, bytesLength, recordCount uint64, originalFilename string, sourceSha1 [20]byte, dataFnv1aChecksum uint32) *StreamFooter1 {
+func NewStreamFooter1(headRecordEpoch, tailRecordEpoch, bytesLength, recordCount uint64, originalFilename string, sourceSha1 []byte, dataFnv1aChecksum uint32) *StreamFooter1 {
     return &StreamFooter1{
         headRecordEpoch:   headRecordEpoch,
         tailRecordEpoch:   tailRecordEpoch,
@@ -31,11 +33,6 @@ func NewStreamFooter1(headRecordEpoch, tailRecordEpoch, bytesLength, recordCount
 }
 
 func NewStreamFooter1FromEncoded(sfEncoded *ttgstream.StreamFooter1) (sf *StreamFooter1) {
-    sha1ByteCount := sfEncoded.SourceSha1Length()
-    if sha1ByteCount != 20 {
-        log.PanicIf("SHA1 is not the right size")
-    }
-
     sf = &StreamFooter1{
         headRecordEpoch:   sfEncoded.HeadRecordEpoch(),
         tailRecordEpoch:   sfEncoded.TailRecordEpoch(),
@@ -43,38 +40,83 @@ func NewStreamFooter1FromEncoded(sfEncoded *ttgstream.StreamFooter1) (sf *Stream
         recordCount:       sfEncoded.RecordCount(),
         originalFilename:  string(sfEncoded.OriginalFilename()),
         dataFnv1aChecksum: sfEncoded.DataFnv1aChecksum(),
-    }
-
-    for i := 0; i < 20; i++ {
-        b := sfEncoded.SourceSha1(i)
-        sf.sourceSha1[i] = byte(b)
+        sourceSha1:        sfEncoded.SourceSha1(),
     }
 
     return sf
 }
 
-// writeFooter1 will write the footer for a series. When this returns, we'll be
-// in the position following the final NUL byte.
-func (sw *StreamWriter) writeFooter1(sf *StreamFooter1) (err error) {
+func (sf *StreamFooter1) Version() StreamFooterVersion {
+    return StreamFooterVersion1
+}
+
+func (sf *StreamFooter1) HeadRecordEpoch() uint64 {
+    return sf.headRecordEpoch
+}
+
+func (sf *StreamFooter1) TailRecordEpoch() uint64 {
+    return sf.tailRecordEpoch
+}
+
+func (sf *StreamFooter1) BytesLength() uint64 {
+    return sf.bytesLength
+}
+
+func (sf *StreamFooter1) RecordCount() uint64 {
+    return sf.recordCount
+}
+
+func (sf *StreamFooter1) OriginalFilename() string {
+    return sf.originalFilename
+}
+
+func (sf *StreamFooter1) SourceSha1() []byte {
+    return sf.sourceSha1
+}
+
+func (sf *StreamFooter1) DataFnv1aChecksum() uint32 {
+    return sf.dataFnv1aChecksum
+}
+
+// writeFooter takes a metadata-type struct and writes the latest version of
+// the footer.
+func (sw *StreamWriter) writeFooter(sm SeriesMetadata) (err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
         }
     }()
 
+    err = sw.writeFooter1(sm)
+    log.PanicIf(err)
+
+    return nil
+}
+
+// writeFooter1 will write the footer for a series. When this returns, we'll be
+// in the position following the final NUL byte.
+func (sw *StreamWriter) writeFooter1(sm SeriesMetadata) (err error) {
+    defer func() {
+        if state := recover(); state != nil {
+            err = log.Wrap(state.(error))
+        }
+    }()
+
+    // TDO(dustin): !! We also need to finish off the stream with a metadata struct.
+
     sw.b.Reset()
 
-    filenamePosition := sw.b.CreateString(sf.originalFilename)
-    sha1Position := sw.b.CreateByteString(sf.sourceSha1[:])
+    filenamePosition := sw.b.CreateString(sm.OriginalFilename())
+    sha1Position := sw.b.CreateByteString(sm.SourceSha1())
 
     ttgstream.StreamFooter1Start(sw.b)
-    ttgstream.StreamFooter1AddHeadRecordEpoch(sw.b, sf.headRecordEpoch)
-    ttgstream.StreamFooter1AddTailRecordEpoch(sw.b, sf.tailRecordEpoch)
-    ttgstream.StreamFooter1AddBytesLength(sw.b, sf.bytesLength)
-    ttgstream.StreamFooter1AddRecordCount(sw.b, sf.recordCount)
+    ttgstream.StreamFooter1AddHeadRecordEpoch(sw.b, sm.HeadRecordEpoch())
+    ttgstream.StreamFooter1AddTailRecordEpoch(sw.b, sm.TailRecordEpoch())
+    ttgstream.StreamFooter1AddBytesLength(sw.b, sm.BytesLength())
+    ttgstream.StreamFooter1AddRecordCount(sw.b, sm.RecordCount())
     ttgstream.StreamFooter1AddOriginalFilename(sw.b, filenamePosition)
     ttgstream.StreamFooter1AddSourceSha1(sw.b, sha1Position)
-    ttgstream.StreamFooter1AddDataFnv1aChecksum(sw.b, sf.dataFnv1aChecksum)
+    ttgstream.StreamFooter1AddDataFnv1aChecksum(sw.b, sm.DataFnv1aChecksum())
     sfPosition := ttgstream.StreamFooter1End(sw.b)
 
     sw.b.Finish(sfPosition)

@@ -16,7 +16,7 @@ func TestStreamWriter__write_and_read(t *testing.T) {
     headRecordEpoch := uint64(time.Now().Unix())
     tailRecordEpoch := headRecordEpoch + 10
 
-    sourceSha1 := [20]byte{
+    sourceSha1 := []byte{
         11,
         22,
         33,
@@ -41,7 +41,7 @@ func TestStreamWriter__write_and_read(t *testing.T) {
 
     raw := b.Bytes()
 
-    if len(raw) != 125 {
+    if len(raw) != 109 {
         t.Fatalf("Encoded data is not the right size: (%d)", len(raw))
     }
 
