@@ -61,15 +61,15 @@ func NewStreamReader(rs io.ReadSeeker) *StreamReader {
     }
 }
 
-// readFooter will read the footer for the current series. When this returns,
-// the current position will be the last byte of the time-series that precedes
-// the footer. The last byte will always be a NUL.
-func (sr *StreamReader) readFooter() (sm SeriesMetadata, err error) {
+// readFooter reads a block of data backwards from the current position.
+func (sr *StreamReader) readFooter() (footerVersion uint16, footerBytes []byte, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
         }
     }()
+
+    // TODO(dustin): !! Add test.
 
     // We should always be sitting on a NUL.
 
@@ -92,7 +92,6 @@ func (sr *StreamReader) readFooter() (sm SeriesMetadata, err error) {
     shadowPosition, err := sr.rs.Seek(-shadowFooterSize-1, os.SEEK_END)
     log.PanicIf(err)
 
-    var footerVersion SeriesFooterVersion
     err = binary.Read(sr.rs, binary.LittleEndian, &footerVersion)
     log.PanicIf(err)
 
@@ -109,12 +108,28 @@ func (sr *StreamReader) readFooter() (sm SeriesMetadata, err error) {
     footerPosition, err := sr.rs.Seek(shadowPosition-int64(footerLength), os.SEEK_SET)
     log.PanicIf(err)
 
-    footerBytes := make([]byte, footerLength)
+    footerBytes = make([]byte, footerLength)
 
     _, err = io.ReadFull(sr.rs, footerBytes)
     log.PanicIf(err)
 
     streamLogger.Debugf(nil, "Reading version (%d) footer of length (%d) at position (%d).", footerVersion, footerLength, footerPosition)
+
+    return footerVersion, footerBytes, nil
+}
+
+// readSeriesFooter will read the footer for the current series. When this
+// returns, the current position will be the last byte of the time-series that
+// precedes the footer. The last byte will always be a NUL.
+func (sr *StreamReader) readSeriesFooter() (sm SeriesMetadata, err error) {
+    defer func() {
+        if state := recover(); state != nil {
+            err = log.Wrap(state.(error))
+        }
+    }()
+
+    footerVersion, footerBytes, err := sr.readFooter()
+    log.PanicIf(err)
 
     switch footerVersion {
     case 1:

@@ -53,7 +53,7 @@ func TestStreamWriter__write_and_read(t *testing.T) {
 
     sr := NewStreamReader(r)
 
-    sfRecoveredInt, err := sr.readFooter()
+    sfRecoveredInt, err := sr.readSeriesFooter()
     log.PanicIf(err)
 
     sfRecovered := sfRecoveredInt.(*SeriesFooter1)
