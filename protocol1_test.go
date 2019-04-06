@@ -25,7 +25,7 @@ func TestStreamWriter__write_and_read(t *testing.T) {
     dataFnv1aChecksum := uint32(1234)
 
     sfOriginal :=
-        NewStreamFooter1(
+        NewSeriesFooter1(
             headRecordEpoch,
             tailRecordEpoch,
             11,
@@ -56,7 +56,7 @@ func TestStreamWriter__write_and_read(t *testing.T) {
     sfRecoveredInt, err := sr.readFooter()
     log.PanicIf(err)
 
-    sfRecovered := sfRecoveredInt.(*StreamFooter1)
+    sfRecovered := sfRecoveredInt.(*SeriesFooter1)
 
     if reflect.DeepEqual(sfRecovered, sfOriginal) != true {
         t.Fatalf("Recovered record is not correct.")

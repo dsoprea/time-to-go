@@ -16,11 +16,11 @@ var (
     streamLogger = log.NewLogger("timetogo.stream")
 )
 
-type StreamFooterVersion uint16
+type SeriesFooterVersion uint16
 
-// StreamFooterVersion enum
+// SeriesFooterVersion enum
 const (
-    StreamFooterVersion1 StreamFooterVersion = 1
+    SeriesFooterVersion1 SeriesFooterVersion = 1
 )
 
 // SeriesMetadata describes data derived from a stream footer.
@@ -48,7 +48,7 @@ type SeriesMetadata interface {
     DataFnv1aChecksum() uint32
 
     // Version returns the version of the footer.
-    Version() StreamFooterVersion
+    Version() SeriesFooterVersion
 }
 
 type StreamReader struct {
@@ -92,7 +92,7 @@ func (sr *StreamReader) readFooter() (sm SeriesMetadata, err error) {
     shadowPosition, err := sr.rs.Seek(-shadowFooterSize-1, os.SEEK_END)
     log.PanicIf(err)
 
-    var footerVersion StreamFooterVersion
+    var footerVersion SeriesFooterVersion
     err = binary.Read(sr.rs, binary.LittleEndian, &footerVersion)
     log.PanicIf(err)
 
@@ -118,8 +118,8 @@ func (sr *StreamReader) readFooter() (sm SeriesMetadata, err error) {
 
     switch footerVersion {
     case 1:
-        sfEncoded := ttgstream.GetRootAsStreamFooter1(footerBytes, 0)
-        sm := NewStreamFooter1FromEncoded(sfEncoded)
+        sfEncoded := ttgstream.GetRootAsSeriesFooter1(footerBytes, 0)
+        sm := NewSeriesFooter1FromEncoded(sfEncoded)
 
         return sm, nil
     }

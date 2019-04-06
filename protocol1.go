@@ -8,9 +8,7 @@ import (
     "github.com/dsoprea/time-to-go/protocol/ttgstream"
 )
 
-// TODO(dustin): !! Rename all "stream footer" stuff to "series footer"?
-
-type StreamFooter1 struct {
+type SeriesFooter1 struct {
     headRecordEpoch   uint64 // The timestamp of the first record
     tailRecordEpoch   uint64 // The timestamp of the last record
     bytesLength       uint64 // The number of bytes occupied on-disk
@@ -20,8 +18,8 @@ type StreamFooter1 struct {
     dataFnv1aChecksum uint32 // FNV-1a checksum of the time-series data on-disk
 }
 
-func NewStreamFooter1(headRecordEpoch, tailRecordEpoch, bytesLength, recordCount uint64, originalFilename string, sourceSha1 []byte, dataFnv1aChecksum uint32) *StreamFooter1 {
-    return &StreamFooter1{
+func NewSeriesFooter1(headRecordEpoch, tailRecordEpoch, bytesLength, recordCount uint64, originalFilename string, sourceSha1 []byte, dataFnv1aChecksum uint32) *SeriesFooter1 {
+    return &SeriesFooter1{
         headRecordEpoch:   headRecordEpoch,
         tailRecordEpoch:   tailRecordEpoch,
         bytesLength:       bytesLength,
@@ -32,8 +30,8 @@ func NewStreamFooter1(headRecordEpoch, tailRecordEpoch, bytesLength, recordCount
     }
 }
 
-func NewStreamFooter1FromEncoded(sfEncoded *ttgstream.StreamFooter1) (sf *StreamFooter1) {
-    sf = &StreamFooter1{
+func NewSeriesFooter1FromEncoded(sfEncoded *ttgstream.SeriesFooter1) (sf *SeriesFooter1) {
+    sf = &SeriesFooter1{
         headRecordEpoch:   sfEncoded.HeadRecordEpoch(),
         tailRecordEpoch:   sfEncoded.TailRecordEpoch(),
         bytesLength:       sfEncoded.BytesLength(),
@@ -46,35 +44,35 @@ func NewStreamFooter1FromEncoded(sfEncoded *ttgstream.StreamFooter1) (sf *Stream
     return sf
 }
 
-func (sf *StreamFooter1) Version() StreamFooterVersion {
-    return StreamFooterVersion1
+func (sf *SeriesFooter1) Version() SeriesFooterVersion {
+    return SeriesFooterVersion1
 }
 
-func (sf *StreamFooter1) HeadRecordEpoch() uint64 {
+func (sf *SeriesFooter1) HeadRecordEpoch() uint64 {
     return sf.headRecordEpoch
 }
 
-func (sf *StreamFooter1) TailRecordEpoch() uint64 {
+func (sf *SeriesFooter1) TailRecordEpoch() uint64 {
     return sf.tailRecordEpoch
 }
 
-func (sf *StreamFooter1) BytesLength() uint64 {
+func (sf *SeriesFooter1) BytesLength() uint64 {
     return sf.bytesLength
 }
 
-func (sf *StreamFooter1) RecordCount() uint64 {
+func (sf *SeriesFooter1) RecordCount() uint64 {
     return sf.recordCount
 }
 
-func (sf *StreamFooter1) OriginalFilename() string {
+func (sf *SeriesFooter1) OriginalFilename() string {
     return sf.originalFilename
 }
 
-func (sf *StreamFooter1) SourceSha1() []byte {
+func (sf *SeriesFooter1) SourceSha1() []byte {
     return sf.sourceSha1
 }
 
-func (sf *StreamFooter1) DataFnv1aChecksum() uint32 {
+func (sf *SeriesFooter1) DataFnv1aChecksum() uint32 {
     return sf.dataFnv1aChecksum
 }
 
@@ -109,15 +107,15 @@ func (sw *StreamWriter) writeFooter1(sm SeriesMetadata) (err error) {
     filenamePosition := sw.b.CreateString(sm.OriginalFilename())
     sha1Position := sw.b.CreateByteString(sm.SourceSha1())
 
-    ttgstream.StreamFooter1Start(sw.b)
-    ttgstream.StreamFooter1AddHeadRecordEpoch(sw.b, sm.HeadRecordEpoch())
-    ttgstream.StreamFooter1AddTailRecordEpoch(sw.b, sm.TailRecordEpoch())
-    ttgstream.StreamFooter1AddBytesLength(sw.b, sm.BytesLength())
-    ttgstream.StreamFooter1AddRecordCount(sw.b, sm.RecordCount())
-    ttgstream.StreamFooter1AddOriginalFilename(sw.b, filenamePosition)
-    ttgstream.StreamFooter1AddSourceSha1(sw.b, sha1Position)
-    ttgstream.StreamFooter1AddDataFnv1aChecksum(sw.b, sm.DataFnv1aChecksum())
-    sfPosition := ttgstream.StreamFooter1End(sw.b)
+    ttgstream.SeriesFooter1Start(sw.b)
+    ttgstream.SeriesFooter1AddHeadRecordEpoch(sw.b, sm.HeadRecordEpoch())
+    ttgstream.SeriesFooter1AddTailRecordEpoch(sw.b, sm.TailRecordEpoch())
+    ttgstream.SeriesFooter1AddBytesLength(sw.b, sm.BytesLength())
+    ttgstream.SeriesFooter1AddRecordCount(sw.b, sm.RecordCount())
+    ttgstream.SeriesFooter1AddOriginalFilename(sw.b, filenamePosition)
+    ttgstream.SeriesFooter1AddSourceSha1(sw.b, sha1Position)
+    ttgstream.SeriesFooter1AddDataFnv1aChecksum(sw.b, sm.DataFnv1aChecksum())
+    sfPosition := ttgstream.SeriesFooter1End(sw.b)
 
     sw.b.Finish(sfPosition)
 

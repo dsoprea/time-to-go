@@ -1,10 +1,10 @@
 namespace ttgstream;
 
-// StreamFooter (VERSION 1)
+// SeriesFooter (VERSION 1)
 //
 // Describes the time-series data and is version-guarded for backwards-
 // compatibility. Follows the time-series data.
-table StreamFooter1 {
+table SeriesFooter1 {
   headRecordEpoch:ulong;     // The timestamp of the first record
   tailRecordEpoch:ulong;     // The timestamp of the last record
   bytesLength:ulong;         // The number of bytes occupied on-disk
@@ -14,4 +14,4 @@ table StreamFooter1 {
   dataFnv1aChecksum:uint;   // FNV-1a checksum of the time-series data on-disk
 }
 
-root_type StreamFooter1;
+root_type SeriesFooter1;
