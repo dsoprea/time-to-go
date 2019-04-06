@@ -61,8 +61,15 @@ func NewStreamReader(rs io.ReadSeeker) *StreamReader {
     }
 }
 
-// readFooter reads a block of data backwards from the current position.
-func (sr *StreamReader) readFooter() (footerVersion uint16, footerBytes []byte, err error) {
+type FooterType byte
+
+const (
+    FtSeriesFooter FooterType = 1
+)
+
+// readFooter reads a non-series block of data (e.g. series footer) backwards
+// from the current position.
+func (sr *StreamReader) readFooter() (footerVersion uint16, footerType FooterType, footerBytes []byte, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
@@ -84,18 +91,26 @@ func (sr *StreamReader) readFooter() (footerVersion uint16, footerBytes []byte, 
 
     // Read the shadow footer.
 
-    var twoBytes [2]uint16
-    shadowFooterSize := int64(binary.Size(twoBytes))
+    // version + type + size
+    shadowFooterSize := 2 + 1 + 2
 
     // We're expecting to start on the last byte of any of the shadow-footers
     // in the stream, which we've already read past, above.
-    shadowPosition, err := sr.rs.Seek(-shadowFooterSize-1, os.SEEK_END)
+    shadowPosition, err := sr.rs.Seek(-int64(shadowFooterSize)-1, os.SEEK_END)
     log.PanicIf(err)
 
     err = binary.Read(sr.rs, binary.LittleEndian, &footerVersion)
     log.PanicIf(err)
 
     streamLogger.Debugf(nil, "SHADOW: FOOTER-VERSION=(%d)", footerVersion)
+
+    footerTypeBytes := make([]byte, 1)
+    _, err = io.ReadFull(sr.rs, footerTypeBytes)
+    log.PanicIf(err)
+
+    footerType = FooterType(footerTypeBytes[0])
+
+    streamLogger.Debugf(nil, "SHADOW: FOOTER-TYPE=(%d)", footerType)
 
     var footerLength uint16
     err = binary.Read(sr.rs, binary.LittleEndian, &footerLength)
@@ -115,7 +130,7 @@ func (sr *StreamReader) readFooter() (footerVersion uint16, footerBytes []byte, 
 
     streamLogger.Debugf(nil, "Reading version (%d) footer of length (%d) at position (%d).", footerVersion, footerLength, footerPosition)
 
-    return footerVersion, footerBytes, nil
+    return footerVersion, footerType, footerBytes, nil
 }
 
 // readSeriesFooter will read the footer for the current series. When this
@@ -128,8 +143,12 @@ func (sr *StreamReader) readSeriesFooter() (sm SeriesMetadata, err error) {
         }
     }()
 
-    footerVersion, footerBytes, err := sr.readFooter()
+    footerVersion, footerType, footerBytes, err := sr.readFooter()
     log.PanicIf(err)
+
+    if footerType != FtSeriesFooter {
+        log.Panicf("next footer (reverse iteration) is not a series-footer")
+    }
 
     switch footerVersion {
     case 1:

@@ -128,6 +128,10 @@ func (sw *StreamWriter) writeFooter1(sm SeriesMetadata) (err error) {
     err = binary.Write(sw.w, binary.LittleEndian, footerVersion)
     log.PanicIf(err)
 
+    footerTypeBytes := []byte{byte(FtSeriesFooter)}
+    _, err = sw.w.Write(footerTypeBytes)
+    log.PanicIf(err)
+
     footerLength := uint16(len(data))
     err = binary.Write(sw.w, binary.LittleEndian, footerLength)
     log.PanicIf(err)

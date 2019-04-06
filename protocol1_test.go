@@ -41,7 +41,7 @@ func TestStreamWriter__write_and_read(t *testing.T) {
 
     raw := b.Bytes()
 
-    if len(raw) != 109 {
+    if len(raw) != 110 {
         t.Fatalf("Encoded data is not the right size: (%d)", len(raw))
     }
 
