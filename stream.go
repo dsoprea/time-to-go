@@ -69,7 +69,7 @@ const (
 
 // readFooter reads a non-series block of data (e.g. series footer) backwards
 // from the current position.
-func (sr *StreamReader) readFooter() (footerVersion uint16, footerType FooterType, footerBytes []byte, err error) {
+func (sr *StreamReader) readShadowFooter() (footerVersion uint16, footerType FooterType, footerBytes []byte, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
@@ -104,11 +104,8 @@ func (sr *StreamReader) readFooter() (footerVersion uint16, footerType FooterTyp
 
     streamLogger.Debugf(nil, "SHADOW: FOOTER-VERSION=(%d)", footerVersion)
 
-    footerTypeBytes := make([]byte, 1)
-    _, err = io.ReadFull(sr.rs, footerTypeBytes)
+    err = binary.Read(sr.rs, binary.LittleEndian, &footerType)
     log.PanicIf(err)
-
-    footerType = FooterType(footerTypeBytes[0])
 
     streamLogger.Debugf(nil, "SHADOW: FOOTER-TYPE=(%d)", footerType)
 
@@ -143,7 +140,7 @@ func (sr *StreamReader) readSeriesFooter() (sm SeriesMetadata, err error) {
         }
     }()
 
-    footerVersion, footerType, footerBytes, err := sr.readFooter()
+    footerVersion, footerType, footerBytes, err := sr.readShadowFooter()
     log.PanicIf(err)
 
     if footerType != FtSeriesFooter {
@@ -174,4 +171,28 @@ func NewStreamWriter(w io.Writer) *StreamWriter {
         w: w,
         b: b,
     }
+}
+
+// writeShadowFooter writes a statically-sized footer that follows and describes
+// a dynamically-sized footer.
+func (sw *StreamWriter) writeShadowFooter(footerVersion uint16, footerType FooterType, footerLength uint16) (err error) {
+    defer func() {
+        if state := recover(); state != nil {
+            err = log.Wrap(state.(error))
+        }
+    }()
+
+    err = binary.Write(sw.w, binary.LittleEndian, footerVersion)
+    log.PanicIf(err)
+
+    err = binary.Write(sw.w, binary.LittleEndian, footerType)
+    log.PanicIf(err)
+
+    err = binary.Write(sw.w, binary.LittleEndian, footerLength)
+    log.PanicIf(err)
+
+    _, err = sw.w.Write([]byte{0})
+    log.PanicIf(err)
+
+    return nil
 }

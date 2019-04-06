@@ -1,8 +1,6 @@
 package timetogo
 
 import (
-    "encoding/binary"
-
     "github.com/dsoprea/go-logging"
 
     "github.com/dsoprea/time-to-go/protocol/ttgstream"
@@ -78,14 +76,14 @@ func (sf *SeriesFooter1) DataFnv1aChecksum() uint32 {
 
 // writeFooter takes a metadata-type struct and writes the latest version of
 // the footer.
-func (sw *StreamWriter) writeFooter(sm SeriesMetadata) (err error) {
+func (sw *StreamWriter) writeSeriesFooter(sm SeriesMetadata) (err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
         }
     }()
 
-    err = sw.writeFooter1(sm)
+    err = sw.writeSeriesFooter1(sm)
     log.PanicIf(err)
 
     return nil
@@ -93,7 +91,7 @@ func (sw *StreamWriter) writeFooter(sm SeriesMetadata) (err error) {
 
 // writeFooter1 will write the footer for a series. When this returns, we'll be
 // in the position following the final NUL byte.
-func (sw *StreamWriter) writeFooter1(sm SeriesMetadata) (err error) {
+func (sw *StreamWriter) writeSeriesFooter1(sm SeriesMetadata) (err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
@@ -125,18 +123,7 @@ func (sw *StreamWriter) writeFooter1(sm SeriesMetadata) (err error) {
     log.PanicIf(err)
 
     footerVersion := uint16(1)
-    err = binary.Write(sw.w, binary.LittleEndian, footerVersion)
-    log.PanicIf(err)
-
-    footerTypeBytes := []byte{byte(FtSeriesFooter)}
-    _, err = sw.w.Write(footerTypeBytes)
-    log.PanicIf(err)
-
-    footerLength := uint16(len(data))
-    err = binary.Write(sw.w, binary.LittleEndian, footerLength)
-    log.PanicIf(err)
-
-    _, err = sw.w.Write([]byte{0})
+    err = sw.writeShadowFooter(footerVersion, FtSeriesFooter, uint16(len(data)))
     log.PanicIf(err)
 
     return nil

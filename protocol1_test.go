@@ -36,7 +36,7 @@ func TestStreamWriter__write_and_read(t *testing.T) {
 
     sw := NewStreamWriter(b)
 
-    err := sw.writeFooter1(sfOriginal)
+    err := sw.writeSeriesFooter1(sfOriginal)
     log.PanicIf(err)
 
     raw := b.Bytes()
