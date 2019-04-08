@@ -2,34 +2,48 @@ package timetogo
 
 import (
     "io"
-    "os"
+    "time"
 
     "encoding/binary"
+    "os"
 
     "github.com/dsoprea/go-logging"
     "github.com/google/flatbuffers/go"
-
-    "github.com/dsoprea/time-to-go/protocol/ttgstream"
 )
 
 var (
     streamLogger = log.NewLogger("timetogo.stream")
 )
 
+// SeriesFooterVersion enum
 type SeriesFooterVersion uint16
 
-// SeriesFooterVersion enum
 const (
     SeriesFooterVersion1 SeriesFooterVersion = 1
 )
 
-// SeriesMetadata describes data derived from a stream footer.
-type SeriesMetadata interface {
-    // HeadRecordEpoch is the timestamp of the first record
-    HeadRecordEpoch() uint64
+// StreamFooterVersion enum
+type StreamFooterVersion uint16
 
-    // TailRecordEpoch is the timestamp of the last record
-    TailRecordEpoch() uint64
+const (
+    StreamFooterVersion1 StreamFooterVersion = 1
+)
+
+// FooterType is an enum that represents all footer types.
+type FooterType byte
+
+const (
+    FtSeriesFooter FooterType = 1
+    FtStreamFooter FooterType = 2
+)
+
+// SeriesFooter describes data derived from a stream footer.
+type SeriesFooter interface {
+    // HeadRecordTime is the timestamp of the first record
+    HeadRecordTime() time.Time
+
+    // TailRecordTime is the timestamp of the last record
+    TailRecordTime() time.Time
 
     // BytesLength() is the number of bytes occupied on-disk
     BytesLength() uint64
@@ -51,6 +65,24 @@ type SeriesMetadata interface {
     Version() SeriesFooterVersion
 }
 
+type StreamIndexedSequenceInfo interface {
+    // HeadRecordTime is the timestamp of the first record
+    HeadRecordTime() time.Time
+
+    // TailRecordTime is the timestamp of the last record
+    TailRecordTime() time.Time
+
+    // OriginalFilename is the filename of the source-data
+    OriginalFilename() string
+
+    // AbsolutePosition is the absolute position of the boundary marker (NUL)
+    AbsolutePosition() uint64
+}
+
+type StreamFooter interface {
+    Series() []StreamIndexedSequenceInfo
+}
+
 type StreamReader struct {
     rs io.ReadSeeker
 }
@@ -60,12 +92,6 @@ func NewStreamReader(rs io.ReadSeeker) *StreamReader {
         rs: rs,
     }
 }
-
-type FooterType byte
-
-const (
-    FtSeriesFooter FooterType = 1
-)
 
 // readFooter reads a non-series block of data (e.g. series footer) backwards
 // from the current position.
@@ -133,7 +159,7 @@ func (sr *StreamReader) readShadowFooter() (footerVersion uint16, footerType Foo
 // readSeriesFooter will read the footer for the current series. When this
 // returns, the current position will be the last byte of the time-series that
 // precedes the footer. The last byte will always be a NUL.
-func (sr *StreamReader) readSeriesFooter() (sm SeriesMetadata, err error) {
+func (sr *StreamReader) readSeriesFooter() (sf SeriesFooter, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
@@ -149,13 +175,40 @@ func (sr *StreamReader) readSeriesFooter() (sm SeriesMetadata, err error) {
 
     switch footerVersion {
     case 1:
-        sfEncoded := ttgstream.GetRootAsSeriesFooter1(footerBytes, 0)
-        sm := NewSeriesFooter1FromEncoded(sfEncoded)
+        sm := NewSeriesFooter1FromEncoded(footerBytes)
 
         return sm, nil
     }
 
-    log.Panicf("footer version not valid (%d)", footerVersion)
+    log.Panicf("series footer version not valid (%d)", footerVersion)
+    panic(nil)
+}
+
+// readStreamFooter parses data located at the very end of the stream that
+// describes the contents of the stream.
+func (sr *StreamReader) readStreamFooter() (sf StreamFooter, err error) {
+    defer func() {
+        if state := recover(); state != nil {
+            err = log.Wrap(state.(error))
+        }
+    }()
+
+    footerVersion, footerType, footerBytes, err := sr.readShadowFooter()
+    log.PanicIf(err)
+
+    if footerType != FtStreamFooter {
+        log.Panicf("next footer (reverse iteration) is not a stream-footer")
+    }
+
+    switch footerVersion {
+    case 1:
+        sf, err := NewStreamFooter1FromEncoded(footerBytes)
+        log.PanicIf(err)
+
+        return sf, nil
+    }
+
+    log.Panicf("stream footer version not valid (%d)", footerVersion)
     panic(nil)
 }
 

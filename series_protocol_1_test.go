@@ -10,11 +10,14 @@ import (
     "github.com/dsoprea/go-logging"
 )
 
-func TestStreamWriter__write_and_read(t *testing.T) {
+func TestStreamWriter__series_write_and_read(t *testing.T) {
     b := new(bytes.Buffer)
 
-    headRecordEpoch := uint64(time.Now().Unix())
-    tailRecordEpoch := headRecordEpoch + 10
+    // Make sure the timestamp now matches thesame one later.
+    headRecordTime := time.Now().UTC()
+    headRecordTime = headRecordTime.Add(-time.Nanosecond * time.Duration(headRecordTime.Nanosecond()))
+
+    tailRecordTime := headRecordTime.Add(time.Second * 10)
 
     sourceSha1 := []byte{
         11,
@@ -26,8 +29,8 @@ func TestStreamWriter__write_and_read(t *testing.T) {
 
     sfOriginal :=
         NewSeriesFooter1(
-            headRecordEpoch,
-            tailRecordEpoch,
+            headRecordTime,
+            tailRecordTime,
             11,
             22,
             "some_filename",
@@ -53,12 +56,12 @@ func TestStreamWriter__write_and_read(t *testing.T) {
 
     sr := NewStreamReader(r)
 
-    sfRecoveredInt, err := sr.readSeriesFooter()
+    sfRecoveredInterface, err := sr.readSeriesFooter()
     log.PanicIf(err)
 
-    sfRecovered := sfRecoveredInt.(*SeriesFooter1)
+    sfRecovered := sfRecoveredInterface.(*SeriesFooter1)
 
     if reflect.DeepEqual(sfRecovered, sfOriginal) != true {
-        t.Fatalf("Recovered record is not correct.")
+        t.Fatalf("Recovered record is not correct:\nACTUAL:\n%v\nEXPECTED:\n%v", sfRecovered, sfOriginal)
     }
 }

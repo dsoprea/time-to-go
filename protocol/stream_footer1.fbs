@@ -1,0 +1,27 @@
+namespace ttgstream;
+
+table StreamIndexedSequenceInfo {
+	// The timestamp of the first record
+	headRecordEpoch:ulong;
+
+	// The timestamp of the last record
+	tailRecordEpoch:ulong;
+
+	// The filename of the source-data
+	originalFilename:string;
+
+	// Absolute position of the boundary marker (NUL)
+	absolutePosition:ulong;
+}
+
+// StreamFooter (VERSION 1)
+//
+// Describes all of the series that are present in the stream and is version-
+// guarded for backwards-compatibility. Follows the time-series data.
+table StreamFooter1 {
+  	// An vector of sequence-info blocks. These provide basic sequence
+  	// information to mitigate searching.
+  	series:[StreamIndexedSequenceInfo];
+}
+
+root_type StreamFooter1;

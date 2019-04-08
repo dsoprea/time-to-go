@@ -5,13 +5,26 @@ namespace ttgstream;
 // Describes the time-series data and is version-guarded for backwards-
 // compatibility. Follows the time-series data.
 table SeriesFooter1 {
-  headRecordEpoch:ulong;     // The timestamp of the first record
-  tailRecordEpoch:ulong;     // The timestamp of the last record
-  bytesLength:ulong;         // The number of bytes occupied on-disk
-  recordCount:ulong;         // The number of records in the list
-  originalFilename:string;  // The filename of the source-data
-  sourceSha1:string;        // SHA1 of the raw source-data; can be used to determine if the source-data has changed
-  dataFnv1aChecksum:uint;   // FNV-1a checksum of the time-series data on-disk
+	// The timestamp of the first record
+	headRecordEpoch:ulong;
+
+	// The timestamp of the last record
+	tailRecordEpoch:ulong;
+
+	// The number of bytes occupied on-disk
+	bytesLength:ulong;
+
+	// The number of records in the list
+	recordCount:ulong;
+
+	// The filename of the source-data
+	originalFilename:string;
+
+	// SHA1 of the raw source-data; can be used to determine if the source-data has changed
+	sourceSha1:string;
+
+	// FNV-1a checksum of the time-series data on-disk
+	dataFnv1aChecksum:uint;
 }
 
 root_type SeriesFooter1;
