@@ -2,7 +2,6 @@ package timetogo
 
 import (
     "bytes"
-    "os"
     "testing"
     "time"
 
@@ -54,12 +53,11 @@ func TestStreamWriter__StreamWriteAndRead(t *testing.T) {
     }
 
     r := bytes.NewReader(raw)
+    sr := NewStreamReader(r)
 
     // Put us on the trailing NUL byte.
-    _, err := r.Seek(-1, os.SEEK_END)
+    err := sr.Reset()
     log.PanicIf(err)
-
-    sr := NewStreamReader(r)
 
     sf, nextBoundaryOffset, _, err := sr.readStreamFooter()
     log.PanicIf(err)

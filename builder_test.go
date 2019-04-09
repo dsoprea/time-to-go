@@ -70,7 +70,7 @@ func TestBuilder_Finish(t *testing.T) {
     sr := NewStreamReader(r)
 
     // Put us on the trailing NUL byte.
-    _, err := r.Seek(-1, os.SEEK_END)
+    err := sr.Reset()
     log.PanicIf(err)
 
     // Vaidate stream footer.

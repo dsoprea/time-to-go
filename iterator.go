@@ -2,14 +2,12 @@ package timetogo
 
 import (
     "io"
-    "os"
 
     "github.com/dsoprea/go-logging"
 )
 
 // Iterator efficiently steps backwards through the series in a stream in order.
 type Iterator struct {
-    rs            io.ReadSeeker
     sr            *StreamReader
     seriesInfo    []StreamIndexedSequenceInfo
     currentSeries int
@@ -32,18 +30,15 @@ func (it *Iterator) SeriesInfo(i int) StreamIndexedSequenceInfo {
     return it.seriesInfo[i]
 }
 
-func NewIterator(rs io.ReadSeeker) (it *Iterator, err error) {
+func NewIterator(sr *StreamReader) (it *Iterator, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
         }
     }()
 
-    // Put us on the trailing NUL byte.
-    _, err = rs.Seek(-1, os.SEEK_END)
+    err = sr.Reset()
     log.PanicIf(err)
-
-    sr := NewStreamReader(rs)
 
     streamFooter, _, _, err := sr.readStreamFooter()
     log.PanicIf(err)
@@ -51,7 +46,6 @@ func NewIterator(rs io.ReadSeeker) (it *Iterator, err error) {
     seriesInfo := streamFooter.Series()
 
     it = &Iterator{
-        rs:            rs,
         sr:            sr,
         seriesInfo:    seriesInfo,
         currentSeries: len(seriesInfo) - 1,

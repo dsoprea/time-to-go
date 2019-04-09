@@ -284,6 +284,22 @@ func (sr *StreamReader) ReadSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo
     return seriesFooter, seriesData, seriesSize, nil
 }
 
+// Reset will put us at the end of the file. This is required in order to
+// iterate.
+func (sr *StreamReader) Reset() (err error) {
+    defer func() {
+        if state := recover(); state != nil {
+            err = log.Wrap(state.(error))
+        }
+    }()
+
+    // Put us on the trailing NUL byte.
+    _, err = sr.rs.Seek(-1, os.SEEK_END)
+    log.PanicIf(err)
+
+    return nil
+}
+
 type StreamWriter struct {
     w io.Writer
     b *flatbuffers.Builder

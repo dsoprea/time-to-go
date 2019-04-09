@@ -3,7 +3,6 @@ package timetogo
 import (
     "errors"
     "io"
-    "os"
     "time"
 
     "github.com/dsoprea/go-logging"
@@ -22,11 +21,11 @@ type Index struct {
 }
 
 func NewIndex(rs io.ReadSeeker) (index *Index, err error) {
-    // Put us on the trailing NUL byte.
-    _, err = rs.Seek(-1, os.SEEK_END)
-    log.PanicIf(err)
-
     sr := NewStreamReader(rs)
+
+    // Put us on the trailing NUL byte.
+    err = sr.Reset()
+    log.PanicIf(err)
 
     streamFooter, _, _, err := sr.readStreamFooter()
     log.PanicIf(err)

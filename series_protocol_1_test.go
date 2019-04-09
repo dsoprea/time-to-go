@@ -70,12 +70,11 @@ func TestStreamWriter__SeriesWriteAndRead(t *testing.T) {
     }
 
     r := bytes.NewReader(raw)
+    sr := NewStreamReader(r)
 
     // Put us on the trailing NUL byte.
-    _, err := r.Seek(-1, os.SEEK_END)
+    err := sr.Reset()
     log.PanicIf(err)
-
-    sr := NewStreamReader(r)
 
     sfRecoveredInterface, dataOffset, nextBoundaryOffset, _, err := sr.readSeriesFooter()
     log.PanicIf(err)

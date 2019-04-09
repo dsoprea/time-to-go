@@ -106,8 +106,9 @@ func TestNewIterator_Iterate(t *testing.T) {
     raw, originalFooters := WriteTestMultiseriesStream()
 
     r := bytes.NewReader(raw)
+    sr := NewStreamReader(r)
 
-    it, err := NewIterator(r)
+    it, err := NewIterator(sr)
     log.PanicIf(err)
 
     if it.Count() != 2 {
