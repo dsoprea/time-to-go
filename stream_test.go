@@ -49,7 +49,7 @@ func TestStream__Protocol1(t *testing.T) {
 
     // Vaidate stream footer.
 
-    sf, nextBoundaryOffset, err := sr.readStreamFooter()
+    sf, nextBoundaryOffset, _, err := sr.readStreamFooter()
     log.PanicIf(err)
 
     if nextBoundaryOffset != int64(seriesSize)-1 {
@@ -69,7 +69,7 @@ func TestStream__Protocol1(t *testing.T) {
 
     // Validate series footer.
 
-    sfRecoveredInterface, dataOffset, nextBoundaryOffset, err := sr.readSeriesFooter()
+    sfRecoveredInterface, dataOffset, nextBoundaryOffset, _, err := sr.readSeriesFooter()
     log.PanicIf(err)
 
     if nextBoundaryOffset != -1 {

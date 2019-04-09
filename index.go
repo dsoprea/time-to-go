@@ -28,7 +28,7 @@ func NewIndex(rs io.ReadSeeker) (index *Index, err error) {
 
     sr := NewStreamReader(rs)
 
-    streamFooter, _, err := sr.readStreamFooter()
+    streamFooter, _, _, err := sr.readStreamFooter()
     log.PanicIf(err)
 
     seriesInfo := streamFooter.Series()

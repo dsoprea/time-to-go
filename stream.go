@@ -15,6 +15,14 @@ var (
     streamLogger = log.NewLogger("timetogo.stream")
 )
 
+const (
+    // ShadowFooterSize is the size of the shadow footer:
+    //
+    //   version + type + length + boundary marker
+    //
+    ShadowFooterSize = 2 + 1 + 2 + 1
+)
+
 // SeriesFooterVersion enum
 type SeriesFooterVersion uint16
 
@@ -159,7 +167,7 @@ func (sr *StreamReader) readOneFooter() (footerVersion uint16, footerType Footer
 // readSeriesFooter will read the footer for the current series. When this
 // returns, the current position will be the last byte of the time-series that
 // precedes the footer. The last byte will always be a NUL.
-func (sr *StreamReader) readSeriesFooter() (sf SeriesFooter, dataOffset int64, nextBoundaryOffset int64, err error) {
+func (sr *StreamReader) readSeriesFooter() (sf SeriesFooter, dataOffset int64, nextBoundaryOffset int64, totalFooterSize int, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
@@ -189,12 +197,13 @@ func (sr *StreamReader) readSeriesFooter() (sf SeriesFooter, dataOffset int64, n
         log.PanicIf(err)
     }
 
-    return sf, dataOffset, nextBoundaryOffset, nil
+    totalFooterSize = len(footerBytes) + ShadowFooterSize
+    return sf, dataOffset, nextBoundaryOffset, totalFooterSize, nil
 }
 
 // readStreamFooter parses data located at the very end of the stream that
 // describes the contents of the stream.
-func (sr *StreamReader) readStreamFooter() (sf StreamFooter, nextBoundaryOffset int64, err error) {
+func (sr *StreamReader) readStreamFooter() (sf StreamFooter, nextBoundaryOffset int64, totalFooterSize int, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
@@ -225,10 +234,11 @@ func (sr *StreamReader) readStreamFooter() (sf StreamFooter, nextBoundaryOffset 
         log.PanicIf(err)
     }
 
-    return sf, nextBoundaryOffset, nil
+    totalFooterSize = len(footerBytes) + ShadowFooterSize
+    return sf, nextBoundaryOffset, totalFooterSize, nil
 }
 
-func (sr *StreamReader) readSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo) (seriesFooter SeriesFooter, seriesData []byte, err error) {
+func (sr *StreamReader) readSeriesInfoWithIndexedInfo(sisi StreamIndexedSequenceInfo) (seriesFooter SeriesFooter, seriesSize int, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
@@ -240,10 +250,26 @@ func (sr *StreamReader) readSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo
     _, err = sr.rs.Seek(sisi.AbsolutePosition(), os.SEEK_SET)
     log.PanicIf(err)
 
-    seriesFooter, dataOffset, _, err := sr.readSeriesFooter()
+    seriesFooter, dataOffset, _, footerSize, err := sr.readSeriesFooter()
     log.PanicIf(err)
 
     _, err = sr.rs.Seek(dataOffset, os.SEEK_SET)
+    log.PanicIf(err)
+
+    seriesSize = footerSize + int(seriesFooter.BytesLength())
+    return seriesFooter, seriesSize, nil
+}
+
+func (sr *StreamReader) readSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo) (seriesFooter SeriesFooter, seriesData []byte, seriesSize int, err error) {
+    defer func() {
+        if state := recover(); state != nil {
+            err = log.Wrap(state.(error))
+        }
+    }()
+
+    // TODO(dustin): !! Add unit-test.
+
+    seriesFooter, seriesSize, err = sr.readSeriesInfoWithIndexedInfo(sisi)
     log.PanicIf(err)
 
     seriesData = make([]byte, seriesFooter.BytesLength())
@@ -251,7 +277,7 @@ func (sr *StreamReader) readSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo
     _, err = io.ReadFull(sr.rs, seriesData)
     log.PanicIf(err)
 
-    return seriesFooter, seriesData, nil
+    return seriesFooter, seriesData, seriesSize, nil
 }
 
 type StreamWriter struct {
@@ -308,6 +334,11 @@ func (sw *StreamWriter) writeShadowFooter(footerVersion uint16, footerType Foote
         streamLogger.Debugf(nil, "writeShadowFooter: Wrote (%d) bytes for shadow footer at (%d). Boundary is at (%d).", size, initialPosition, cw.Position()-1)
     } else {
         streamLogger.Debugf(nil, "writeShadowFooter: Wrote (%d) bytes for shadow footer at (%d).", size, initialPosition)
+    }
+
+    // Keep us honest.
+    if size != ShadowFooterSize {
+        log.Panicf("shadow footer is not the right size")
     }
 
     return size, nil

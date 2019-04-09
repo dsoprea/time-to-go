@@ -70,7 +70,7 @@ func TestStreamWriter__SeriesWriteAndRead(t *testing.T) {
 
     sr := NewStreamReader(r)
 
-    sfRecoveredInterface, dataOffset, nextBoundaryOffset, err := sr.readSeriesFooter()
+    sfRecoveredInterface, dataOffset, nextBoundaryOffset, _, err := sr.readSeriesFooter()
     log.PanicIf(err)
 
     sfRecovered := sfRecoveredInterface.(*SeriesFooter1)

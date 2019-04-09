@@ -75,7 +75,7 @@ func TestBuilder_Finish(t *testing.T) {
 
     // Vaidate stream footer.
 
-    streamFooter, nextBoundaryOffset, err := sr.readStreamFooter()
+    streamFooter, nextBoundaryOffset, _, err := sr.readStreamFooter()
     log.PanicIf(err)
 
     if nextBoundaryOffset != int64(seriesSize)-1 {
@@ -89,7 +89,7 @@ func TestBuilder_Finish(t *testing.T) {
 
     // Validate series footer.
 
-    recoveredSeriesFooterInterface, dataOffset, nextBoundaryOffset, err := sr.readSeriesFooter()
+    recoveredSeriesFooterInterface, dataOffset, nextBoundaryOffset, _, err := sr.readSeriesFooter()
     log.PanicIf(err)
 
     if nextBoundaryOffset != -1 {

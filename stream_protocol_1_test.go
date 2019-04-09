@@ -61,7 +61,7 @@ func TestStreamWriter__StreamWriteAndRead(t *testing.T) {
 
     sr := NewStreamReader(r)
 
-    sf, nextBoundaryOffset, err := sr.readStreamFooter()
+    sf, nextBoundaryOffset, _, err := sr.readStreamFooter()
     log.PanicIf(err)
 
     if nextBoundaryOffset != -1 {

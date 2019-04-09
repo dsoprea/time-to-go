@@ -45,7 +45,7 @@ func NewIterator(rs io.ReadSeeker) (it *Iterator, err error) {
 
     sr := NewStreamReader(rs)
 
-    streamFooter, _, err := sr.readStreamFooter()
+    streamFooter, _, _, err := sr.readStreamFooter()
     log.PanicIf(err)
 
     seriesInfo := streamFooter.Series()
@@ -74,7 +74,7 @@ func (it *Iterator) Iterate() (seriesFooter SeriesFooter, seriesData []byte, err
     sisi := it.seriesInfo[it.currentSeries]
     it.currentSeries--
 
-    seriesFooter, seriesData, err = it.sr.readSeriesWithIndexedInfo(sisi)
+    seriesFooter, seriesData, _, err = it.sr.readSeriesWithIndexedInfo(sisi)
     log.PanicIf(err)
 
     return seriesFooter, seriesData, nil
