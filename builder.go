@@ -38,14 +38,14 @@ func (sb *StreamBuilder) AddSeries(encoded []byte, sf SeriesFooter) (err error) 
 
     // TODO(dustin): !! For right now, we expect the time-series to be pre-encoded to whatever the caller uses. So, we can't validate.
 
-    _, err = sb.w.Write(encoded)
+    dataSize, err := sb.w.Write(encoded)
     log.PanicIf(err)
 
-    size, err := sb.sw.writeSeriesFooter1(sf)
+    footerSize, err := sb.sw.writeSeriesFooter1(sf)
     log.PanicIf(err)
 
     sb.offsets = append(sb.offsets, sb.nextOffset)
-    sb.nextOffset = int64(len(encoded)) + int64(size)
+    sb.nextOffset = int64(dataSize) + int64(footerSize)
 
     sb.series = append(sb.series, sf)
 
@@ -73,11 +73,11 @@ func (sb *StreamBuilder) Finish() (totalSize uint64, err error) {
         series[i] = sisi
     }
 
-    streamFooterSize, err := sb.sw.writeStreamFooter(series)
+    footerSize, err := sb.sw.writeStreamFooter(series)
     log.PanicIf(err)
 
     // For completeness, step the offset.
-    sb.nextOffset += int64(streamFooterSize)
+    sb.nextOffset += int64(footerSize)
 
     return uint64(sb.nextOffset), nil
 }
