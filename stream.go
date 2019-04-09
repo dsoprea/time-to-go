@@ -47,6 +47,10 @@ const (
 
 // SeriesFooter describes data derived from a stream footer.
 type SeriesFooter interface {
+    // Uuid is a non-cryptographically unique string that uniquely identifies
+    // this series.
+    Uuid() string
+
     // HeadRecordTime is the timestamp of the first record
     HeadRecordTime() time.Time
 

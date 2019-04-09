@@ -5,6 +5,9 @@ namespace ttgstream;
 // Describes the time-series data and is version-guarded for backwards-
 // compatibility. Follows the time-series data.
 table SeriesFooter1 {
+	// A unique UUID assigned to the series for storage indexing.
+	uuid:string;
+
 	// The timestamp of the first record
 	headRecordEpoch:ulong;
 

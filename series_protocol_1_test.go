@@ -9,6 +9,7 @@ import (
     "time"
 
     "github.com/dsoprea/go-logging"
+    "github.com/google/uuid"
 )
 
 func WriteTestSeriesFooter1(w io.Writer, sw *StreamWriter) (sfOriginal *SeriesFooter1, size int) {
@@ -40,14 +41,20 @@ func WriteTestSeriesFooter1(w io.Writer, sw *StreamWriter) (sfOriginal *SeriesFo
             sourceSha1,
             dataFnv1aChecksum)
 
+    // Make sure we actually have a UUID.
+    _, err = uuid.Parse(sfOriginal.Uuid())
+    log.PanicIf(err)
+
     footerSize, err := sw.writeSeriesFooter1(sfOriginal)
     log.PanicIf(err)
 
-    if footerSize != 110 {
+    size = dataSize + footerSize
+
+    if size != 179 {
         log.Panicf("Series footer was not the correct size: (%d)", size)
     }
 
-    return sfOriginal, dataSize + footerSize
+    return sfOriginal, size
 }
 
 func TestStreamWriter__SeriesWriteAndRead(t *testing.T) {
@@ -58,7 +65,7 @@ func TestStreamWriter__SeriesWriteAndRead(t *testing.T) {
 
     raw := b.Bytes()
 
-    if len(raw) != 131 {
+    if len(raw) != 179 {
         t.Fatalf("Encoded data is not the right size: (%d)", len(raw))
     }
 

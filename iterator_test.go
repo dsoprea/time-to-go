@@ -47,7 +47,7 @@ func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1) {
 
     seriesSize1 := sb.nextOffset
 
-    if seriesSize1 != 131 {
+    if seriesSize1 != 179 {
         log.Panicf("First series size not correct: (%d)", seriesSize1)
     }
 
@@ -75,7 +75,7 @@ func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1) {
 
     seriesSize2 := sb.nextOffset
 
-    if seriesSize2 != 268 {
+    if seriesSize2 != 364 {
         log.Panicf("Second series size not correct: (%d)", seriesSize2)
     }
 
@@ -86,7 +86,7 @@ func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1) {
 
     raw = b.Bytes()
 
-    if len(raw) != 442 {
+    if len(raw) != 538 {
         log.Panicf("stream data is not the right size: (%d)", len(raw))
     }
 

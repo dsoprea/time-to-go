@@ -5,6 +5,7 @@ import (
     "time"
 
     "github.com/dsoprea/go-logging"
+    "github.com/google/uuid"
 
     "github.com/dsoprea/time-to-go/protocol/ttgstream"
 )
@@ -15,31 +16,39 @@ var (
 
 // SeriesFooter1 describes the data in a single series. Version 1.
 type SeriesFooter1 struct {
-    // The timestamp of the first record
+    // uuid is a unique string that uniquely identifies this series in the
+    // stream.
+    uuid string
+
+    // headRecordTime is the timestamp of the first record
     headRecordTime time.Time
 
-    // The timestamp of the last record
+    // tailRecordTime is the timestamp of the last record
     tailRecordTime time.Time
 
-    // The number of bytes occupied on-disk
+    // bytesLength is the number of bytes occupied on-disk
     bytesLength uint64
 
-    // The number of records in the list
+    // recordCount is the number of records in the list
     recordCount uint64
 
-    // The filename of the source-data
+    // originalFilename is the filename of the source-data
     originalFilename string
 
-    // SHA1 of the raw source-data; can be used to determine if the source-data has changed
+    // sourceSha1 is the SHA1 of the raw source-data; can be used to determine
+    // if the source-data has changed
     sourceSha1 []byte
 
-    // FNV-1a checksum of the time-series data on-disk
+    // dataFnv1aChecksum FNV-1a checksum of the time-series data on-disk
     dataFnv1aChecksum uint32
 }
 
 // NewSeriesFooter1 returns a series footer structure. Version 1.
 func NewSeriesFooter1(headRecordTime time.Time, tailRecordTime time.Time, bytesLength, recordCount uint64, originalFilename string, sourceSha1 []byte, dataFnv1aChecksum uint32) *SeriesFooter1 {
+    uuid := uuid.New().String()
+
     return &SeriesFooter1{
+        uuid:              uuid,
         headRecordTime:    headRecordTime.UTC(),
         tailRecordTime:    tailRecordTime.UTC(),
         bytesLength:       bytesLength,
@@ -63,6 +72,7 @@ func NewSeriesFooter1FromEncoded(footerBytes []byte) (sf *SeriesFooter1, err err
     tailRecordTime := time.Unix(int64(sfEncoded.TailRecordEpoch()), 0).In(time.UTC)
 
     sf = &SeriesFooter1{
+        uuid:              string(sfEncoded.Uuid()),
         headRecordTime:    headRecordTime,
         tailRecordTime:    tailRecordTime,
         bytesLength:       sfEncoded.BytesLength(),
@@ -76,7 +86,8 @@ func NewSeriesFooter1FromEncoded(footerBytes []byte) (sf *SeriesFooter1, err err
 }
 
 func (sf *SeriesFooter1) String() string {
-    return fmt.Sprintf("SeriesFooter1<HEAD=[%s] TAIL=[%s] BYTES=(%d) COUNT=(%d) FILENAME=[%s] CHECKSUM=(%d) SOURCE-SHA1=[%20x]>",
+    return fmt.Sprintf("SeriesFooter1<UUID=[%s] HEAD=[%s] TAIL=[%s] BYTES=(%d) COUNT=(%d) FILENAME=[%s] CHECKSUM=(%d) SOURCE-SHA1=[%20x]>",
+        sf.uuid,
         sf.headRecordTime,
         sf.tailRecordTime,
         sf.bytesLength,
@@ -88,6 +99,10 @@ func (sf *SeriesFooter1) String() string {
 
 func (sf *SeriesFooter1) Version() SeriesFooterVersion {
     return SeriesFooterVersion1
+}
+
+func (sf *SeriesFooter1) Uuid() string {
+    return sf.uuid
 }
 
 func (sf *SeriesFooter1) HeadRecordTime() time.Time {
@@ -129,10 +144,12 @@ func (sw *StreamWriter) writeSeriesFooter1(sf SeriesFooter) (size int, err error
 
     sw.b.Reset()
 
+    uuidPosition := sw.b.CreateString(sf.Uuid())
     filenamePosition := sw.b.CreateString(sf.OriginalFilename())
     sha1Position := sw.b.CreateByteString(sf.SourceSha1())
 
     ttgstream.SeriesFooter1Start(sw.b)
+    ttgstream.SeriesFooter1AddUuid(sw.b, uuidPosition)
     ttgstream.SeriesFooter1AddHeadRecordEpoch(sw.b, uint64(sf.HeadRecordTime().Unix()))
     ttgstream.SeriesFooter1AddTailRecordEpoch(sw.b, uint64(sf.TailRecordTime().Unix()))
     ttgstream.SeriesFooter1AddBytesLength(sw.b, sf.BytesLength())
