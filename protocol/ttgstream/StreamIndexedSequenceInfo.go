@@ -26,19 +26,15 @@ func (rcv *StreamIndexedSequenceInfo) Table() flatbuffers.Table {
 	return rcv._tab
 }
 
-func (rcv *StreamIndexedSequenceInfo) HeadRecordEpoch() uint64 {
+func (rcv *StreamIndexedSequenceInfo) Uuid() []byte {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
 	if o != 0 {
-		return rcv._tab.GetUint64(o + rcv._tab.Pos)
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
 	}
-	return 0
+	return nil
 }
 
-func (rcv *StreamIndexedSequenceInfo) MutateHeadRecordEpoch(n uint64) bool {
-	return rcv._tab.MutateUint64Slot(4, n)
-}
-
-func (rcv *StreamIndexedSequenceInfo) TailRecordEpoch() uint64 {
+func (rcv *StreamIndexedSequenceInfo) HeadRecordEpoch() uint64 {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
 	if o != 0 {
 		return rcv._tab.GetUint64(o + rcv._tab.Pos)
@@ -46,12 +42,24 @@ func (rcv *StreamIndexedSequenceInfo) TailRecordEpoch() uint64 {
 	return 0
 }
 
-func (rcv *StreamIndexedSequenceInfo) MutateTailRecordEpoch(n uint64) bool {
+func (rcv *StreamIndexedSequenceInfo) MutateHeadRecordEpoch(n uint64) bool {
 	return rcv._tab.MutateUint64Slot(6, n)
 }
 
-func (rcv *StreamIndexedSequenceInfo) OriginalFilename() []byte {
+func (rcv *StreamIndexedSequenceInfo) TailRecordEpoch() uint64 {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(8))
+	if o != 0 {
+		return rcv._tab.GetUint64(o + rcv._tab.Pos)
+	}
+	return 0
+}
+
+func (rcv *StreamIndexedSequenceInfo) MutateTailRecordEpoch(n uint64) bool {
+	return rcv._tab.MutateUint64Slot(8, n)
+}
+
+func (rcv *StreamIndexedSequenceInfo) OriginalFilename() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
 	if o != 0 {
 		return rcv._tab.ByteVector(o + rcv._tab.Pos)
 	}
@@ -59,7 +67,7 @@ func (rcv *StreamIndexedSequenceInfo) OriginalFilename() []byte {
 }
 
 func (rcv *StreamIndexedSequenceInfo) AbsolutePosition() int64 {
-	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(12))
 	if o != 0 {
 		return rcv._tab.GetInt64(o + rcv._tab.Pos)
 	}
@@ -67,23 +75,26 @@ func (rcv *StreamIndexedSequenceInfo) AbsolutePosition() int64 {
 }
 
 func (rcv *StreamIndexedSequenceInfo) MutateAbsolutePosition(n int64) bool {
-	return rcv._tab.MutateInt64Slot(10, n)
+	return rcv._tab.MutateInt64Slot(12, n)
 }
 
 func StreamIndexedSequenceInfoStart(builder *flatbuffers.Builder) {
-	builder.StartObject(4)
+	builder.StartObject(5)
+}
+func StreamIndexedSequenceInfoAddUuid(builder *flatbuffers.Builder, uuid flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(0, flatbuffers.UOffsetT(uuid), 0)
 }
 func StreamIndexedSequenceInfoAddHeadRecordEpoch(builder *flatbuffers.Builder, headRecordEpoch uint64) {
-	builder.PrependUint64Slot(0, headRecordEpoch, 0)
+	builder.PrependUint64Slot(1, headRecordEpoch, 0)
 }
 func StreamIndexedSequenceInfoAddTailRecordEpoch(builder *flatbuffers.Builder, tailRecordEpoch uint64) {
-	builder.PrependUint64Slot(1, tailRecordEpoch, 0)
+	builder.PrependUint64Slot(2, tailRecordEpoch, 0)
 }
 func StreamIndexedSequenceInfoAddOriginalFilename(builder *flatbuffers.Builder, originalFilename flatbuffers.UOffsetT) {
-	builder.PrependUOffsetTSlot(2, flatbuffers.UOffsetT(originalFilename), 0)
+	builder.PrependUOffsetTSlot(3, flatbuffers.UOffsetT(originalFilename), 0)
 }
 func StreamIndexedSequenceInfoAddAbsolutePosition(builder *flatbuffers.Builder, absolutePosition int64) {
-	builder.PrependInt64Slot(3, absolutePosition, 0)
+	builder.PrependInt64Slot(4, absolutePosition, 0)
 }
 func StreamIndexedSequenceInfoEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()

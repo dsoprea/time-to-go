@@ -32,7 +32,7 @@ func TestStream__Protocol1(t *testing.T) {
 
     raw := b.Bytes()
 
-    if len(raw) != 321 {
+    if len(raw) != 353 {
         t.Fatalf("Encoded data is not the right size: (%d)", len(raw))
     } else if seriesSize+streamSize != len(raw) {
         t.Fatalf("Stream components are not the right size: SERIES-SIZE=(%d) STREAM-SIZE=(%d)", seriesSize, streamSize)

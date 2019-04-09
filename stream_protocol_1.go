@@ -16,6 +16,9 @@ var (
 
 // StreamIndexedSequenceInfo1 briefly describes all series.
 type StreamIndexedSequenceInfo1 struct {
+    // uuid uniquely identifies the series
+    uuid string
+
     // headRecordTime is the timestamp of the first record
     headRecordTime time.Time
 
@@ -30,13 +33,19 @@ type StreamIndexedSequenceInfo1 struct {
 }
 
 // NewStreamIndexedSequenceInfo1 returns a sequence-info structure.
-func NewStreamIndexedSequenceInfo1(headRecordTime, tailRecordTime time.Time, originalFilename string, absolutePosition int64) *StreamIndexedSequenceInfo1 {
+func NewStreamIndexedSequenceInfo1(uuid string, headRecordTime, tailRecordTime time.Time, originalFilename string, absolutePosition int64) *StreamIndexedSequenceInfo1 {
     return &StreamIndexedSequenceInfo1{
+        uuid:             uuid,
         headRecordTime:   headRecordTime.UTC(),
         tailRecordTime:   tailRecordTime.UTC(),
         originalFilename: originalFilename,
         absolutePosition: absolutePosition,
     }
+}
+
+// Uuid is the timestamp of the first record
+func (sisi StreamIndexedSequenceInfo1) Uuid() string {
+    return sisi.uuid
 }
 
 // HeadRecordTime is the timestamp of the first record
@@ -60,7 +69,7 @@ func (sisi StreamIndexedSequenceInfo1) AbsolutePosition() int64 {
 }
 
 func (sisi StreamIndexedSequenceInfo1) String() string {
-    return fmt.Sprintf("StreamIndexedSequenceInfo1<HEAD=[%s] TAIL=[%s] FILENAME=[%s] POSITION=(%d)", sisi.headRecordTime, sisi.tailRecordTime, sisi.originalFilename, sisi.absolutePosition)
+    return fmt.Sprintf("StreamIndexedSequenceInfo1<UUID=[%s] HEAD=[%s] TAIL=[%s] FILENAME=[%s] POSITION=(%d)", sisi.uuid, sisi.headRecordTime, sisi.tailRecordTime, sisi.originalFilename, sisi.absolutePosition)
 }
 
 // writeStreamFooter writes a block of data that describes the entire stream.
@@ -77,11 +86,15 @@ func (sw *StreamWriter) writeStreamFooter(sequences []StreamIndexedSequenceInfo)
 
     sw.b.Reset()
 
+    // Allocate series items.
+
     sisiOffsets := make([]flatbuffers.UOffsetT, len(sequences))
     for i, sisi := range sequences {
+        uuidPosition := sw.b.CreateString(sisi.Uuid())
         filenamePosition := sw.b.CreateString(sisi.OriginalFilename())
 
         ttgstream.StreamIndexedSequenceInfoStart(sw.b)
+        ttgstream.StreamIndexedSequenceInfoAddUuid(sw.b, uuidPosition)
         ttgstream.StreamIndexedSequenceInfoAddHeadRecordEpoch(sw.b, uint64(sisi.HeadRecordTime().Unix()))
         ttgstream.StreamIndexedSequenceInfoAddTailRecordEpoch(sw.b, uint64(sisi.TailRecordTime().Unix()))
         ttgstream.StreamIndexedSequenceInfoAddOriginalFilename(sw.b, filenamePosition)
@@ -90,6 +103,8 @@ func (sw *StreamWriter) writeStreamFooter(sequences []StreamIndexedSequenceInfo)
         sisiOffset := ttgstream.StreamIndexedSequenceInfoEnd(sw.b)
         sisiOffsets[i] = sisiOffset
     }
+
+    // Allocate vector.
 
     seriesCount := len(sequences)
     ttgstream.StreamFooter1StartSeriesVector(sw.b, seriesCount)
@@ -100,6 +115,8 @@ func (sw *StreamWriter) writeStreamFooter(sequences []StreamIndexedSequenceInfo)
     }
 
     seriesVectorOffset := sw.b.EndVector(seriesCount)
+
+    // Build footer.
 
     ttgstream.StreamFooter1Start(sw.b)
 

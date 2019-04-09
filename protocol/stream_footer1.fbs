@@ -1,6 +1,9 @@
 namespace ttgstream;
 
 table StreamIndexedSequenceInfo {
+	// The UUID of the series
+	uuid:string;
+
 	// The timestamp of the first record
 	headRecordEpoch:ulong;
 

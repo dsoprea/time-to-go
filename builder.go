@@ -63,6 +63,7 @@ func (sb *StreamBuilder) Finish() (totalSize uint64, err error) {
     series := make([]StreamIndexedSequenceInfo, len(sb.series))
     for i, seriesFooter := range sb.series {
         sisi := NewStreamIndexedSequenceInfo1(
+            seriesFooter.Uuid(),
             seriesFooter.HeadRecordTime(),
             seriesFooter.TailRecordTime(),
             seriesFooter.OriginalFilename(),
