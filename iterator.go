@@ -74,7 +74,7 @@ func (it *Iterator) Iterate() (seriesFooter SeriesFooter, seriesData []byte, err
     sisi := it.seriesInfo[it.currentSeries]
     it.currentSeries--
 
-    seriesFooter, seriesData, _, err = it.sr.readSeriesWithIndexedInfo(sisi)
+    seriesFooter, seriesData, _, err = it.sr.ReadSeriesWithIndexedInfo(sisi)
     log.PanicIf(err)
 
     return seriesFooter, seriesData, nil

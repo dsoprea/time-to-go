@@ -238,7 +238,7 @@ func (sr *StreamReader) readStreamFooter() (sf StreamFooter, nextBoundaryOffset 
     return sf, nextBoundaryOffset, totalFooterSize, nil
 }
 
-func (sr *StreamReader) readSeriesInfoWithIndexedInfo(sisi StreamIndexedSequenceInfo) (seriesFooter SeriesFooter, seriesSize int, err error) {
+func (sr *StreamReader) ReadSeriesInfoWithIndexedInfo(sisi StreamIndexedSequenceInfo) (seriesFooter SeriesFooter, seriesSize int, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
@@ -260,7 +260,7 @@ func (sr *StreamReader) readSeriesInfoWithIndexedInfo(sisi StreamIndexedSequence
     return seriesFooter, seriesSize, nil
 }
 
-func (sr *StreamReader) readSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo) (seriesFooter SeriesFooter, seriesData []byte, seriesSize int, err error) {
+func (sr *StreamReader) ReadSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo) (seriesFooter SeriesFooter, seriesData []byte, seriesSize int, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
@@ -269,7 +269,7 @@ func (sr *StreamReader) readSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo
 
     // TODO(dustin): !! Add unit-test.
 
-    seriesFooter, seriesSize, err = sr.readSeriesInfoWithIndexedInfo(sisi)
+    seriesFooter, seriesSize, err = sr.ReadSeriesInfoWithIndexedInfo(sisi)
     log.PanicIf(err)
 
     seriesData = make([]byte, seriesFooter.BytesLength())
