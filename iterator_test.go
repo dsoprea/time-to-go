@@ -15,16 +15,15 @@ func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1) {
 
     // Stage stream.
 
-    cw := NewCountingWriter(b)
-    sb := NewStreamBuilder(cw)
+    sb := NewStreamBuilder(b)
 
     // Add first series.
 
-    // Make sure the timestamp now matches thesame one later.
-    headRecordTime := time.Now().UTC()
+    // Make sure the timestamp now matches the same one later by using UTC.
+    headRecordTime := time.Date(2016, 10, 1, 12, 34, 56, 0, time.UTC)
     headRecordTime = headRecordTime.Add(-time.Nanosecond * time.Duration(headRecordTime.Nanosecond()))
 
-    tailRecordTime := headRecordTime.Add(time.Second * 10)
+    tailRecordTime := headRecordTime.Add(time.Second * 20)
 
     sourceSha1 := []byte{
         11,

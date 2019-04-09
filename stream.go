@@ -228,6 +228,32 @@ func (sr *StreamReader) readStreamFooter() (sf StreamFooter, nextBoundaryOffset 
     return sf, nextBoundaryOffset, nil
 }
 
+func (sr *StreamReader) readSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo) (seriesFooter SeriesFooter, seriesData []byte, err error) {
+    defer func() {
+        if state := recover(); state != nil {
+            err = log.Wrap(state.(error))
+        }
+    }()
+
+    // TODO(dustin): !! Add unit-test.
+
+    _, err = sr.rs.Seek(sisi.AbsolutePosition(), os.SEEK_SET)
+    log.PanicIf(err)
+
+    seriesFooter, dataOffset, _, err := sr.readSeriesFooter()
+    log.PanicIf(err)
+
+    _, err = sr.rs.Seek(dataOffset, os.SEEK_SET)
+    log.PanicIf(err)
+
+    seriesData = make([]byte, seriesFooter.BytesLength())
+
+    _, err = io.ReadFull(sr.rs, seriesData)
+    log.PanicIf(err)
+
+    return seriesFooter, seriesData, nil
+}
+
 type StreamWriter struct {
     w io.Writer
     b *flatbuffers.Builder

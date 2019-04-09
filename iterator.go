@@ -60,7 +60,7 @@ func NewIterator(rs io.ReadSeeker) (it *Iterator, err error) {
     return it, nil
 }
 
-func (it *Iterator) Iterate() (sf SeriesFooter, seriesData []byte, err error) {
+func (it *Iterator) Iterate() (seriesFooter SeriesFooter, seriesData []byte, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
@@ -74,18 +74,7 @@ func (it *Iterator) Iterate() (sf SeriesFooter, seriesData []byte, err error) {
     sisi := it.seriesInfo[it.currentSeries]
     it.currentSeries--
 
-    _, err = it.rs.Seek(sisi.AbsolutePosition(), os.SEEK_SET)
-    log.PanicIf(err)
-
-    seriesFooter, dataOffset, _, err := it.sr.readSeriesFooter()
-    log.PanicIf(err)
-
-    _, err = it.rs.Seek(dataOffset, os.SEEK_SET)
-    log.PanicIf(err)
-
-    seriesData = make([]byte, seriesFooter.BytesLength())
-
-    _, err = io.ReadFull(it.rs, seriesData)
+    seriesFooter, seriesData, err = it.sr.readSeriesWithIndexedInfo(sisi)
     log.PanicIf(err)
 
     return seriesFooter, seriesData, nil
