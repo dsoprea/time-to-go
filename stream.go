@@ -93,6 +93,8 @@ func NewStreamReader(rs io.ReadSeeker) *StreamReader {
     }
 }
 
+// TODO(dustin): !! Add a method to check the checksum.
+
 // readOneFooter reads backwards from the current position (which should be the
 // NUL boundary marker). It will first read the shadow footer and then the raw
 // bytes of the real footer preceding it.

@@ -11,7 +11,7 @@ import (
     "github.com/dsoprea/go-logging"
 )
 
-func TestBuilder_Finish(t *testing.T) {
+func WriteTestStream() (raw []byte, originalSeriesFooter *SeriesFooter1, seriesSize int64) {
     b := new(bytes.Buffer)
 
     // Stage stream.
@@ -33,7 +33,7 @@ func TestBuilder_Finish(t *testing.T) {
 
     dataFnv1aChecksum := uint32(1234)
 
-    originalSeriesFooter := NewSeriesFooter1(
+    originalSeriesFooter = NewSeriesFooter1(
         headRecordTime,
         tailRecordTime,
         uint64(len(TestTimeSeriesData)),
@@ -45,18 +45,24 @@ func TestBuilder_Finish(t *testing.T) {
     err := sb.AddSeries(TestTimeSeriesData, originalSeriesFooter)
     log.PanicIf(err)
 
-    seriesSize := sb.nextOffset
+    seriesSize = sb.nextOffset
 
     totalSize, err := sb.Finish()
     log.PanicIf(err)
 
-    raw := b.Bytes()
+    raw = b.Bytes()
 
-    if len(raw) != 225 {
-        t.Fatalf("Encoded data is not the right size: (%d)", len(raw))
+    if len(raw) != 241 {
+        log.Panicf("encoded data is not the right size: (%d)", len(raw))
     } else if totalSize != uint64(len(raw)) {
-        t.Fatalf("Stream components are not the right size: SERIES-SIZE=(%d) STREAM-SIZE=(%d)", totalSize, len(raw))
+        log.Panicf("Stream components are not the right size: SERIES-SIZE=(%d) STREAM-SIZE=(%d)", totalSize, len(raw))
     }
+
+    return raw, originalSeriesFooter, seriesSize
+}
+
+func TestBuilder_Finish(t *testing.T) {
+    raw, originalSeriesFooter, seriesSize := WriteTestStream()
 
     // Validate stream.
 
@@ -64,7 +70,7 @@ func TestBuilder_Finish(t *testing.T) {
     sr := NewStreamReader(r)
 
     // Put us on the trailing NUL byte.
-    _, err = r.Seek(-1, os.SEEK_END)
+    _, err := r.Seek(-1, os.SEEK_END)
     log.PanicIf(err)
 
     // Vaidate stream footer.
@@ -105,7 +111,7 @@ func TestBuilder_Finish(t *testing.T) {
     _, err = io.ReadFull(r, recoveredData)
     log.PanicIf(err)
 
-    if reflect.DeepEqual(recoveredData, TestTimeSeriesData) != true {
+    if bytes.Compare(recoveredData, TestTimeSeriesData) != 0 {
         t.Fatalf("Time-series data was not recovered correctly:\nACTUAL:\n%v\nEXPECTED:\n%v", recoveredData, TestTimeSeriesData)
     }
 
