@@ -11,7 +11,7 @@ table StreamIndexedSequenceInfo {
 	originalFilename:string;
 
 	// Absolute position of the boundary marker (NUL)
-	absolutePosition:ulong;
+	absolutePosition:long;
 }
 
 // StreamFooter (VERSION 1)

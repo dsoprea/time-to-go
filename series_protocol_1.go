@@ -9,6 +9,10 @@ import (
     "github.com/dsoprea/time-to-go/protocol/ttgstream"
 )
 
+var (
+    seriesProtocol1Logger = log.NewLogger("timetogo.series_protocol_1")
+)
+
 // SeriesFooter1 describes the data in a single series. Version 1.
 type SeriesFooter1 struct {
     // The timestamp of the first record
@@ -46,7 +50,13 @@ func NewSeriesFooter1(headRecordTime time.Time, tailRecordTime time.Time, bytesL
     }
 }
 
-func NewSeriesFooter1FromEncoded(footerBytes []byte) (sf *SeriesFooter1) {
+func NewSeriesFooter1FromEncoded(footerBytes []byte) (sf *SeriesFooter1, err error) {
+    defer func() {
+        if state := recover(); state != nil {
+            err = log.Wrap(state.(error))
+        }
+    }()
+
     sfEncoded := ttgstream.GetRootAsSeriesFooter1(footerBytes, 0)
 
     headRecordTime := time.Unix(int64(sfEncoded.HeadRecordEpoch()), 0).In(time.UTC)
@@ -62,7 +72,7 @@ func NewSeriesFooter1FromEncoded(footerBytes []byte) (sf *SeriesFooter1) {
         sourceSha1:        sfEncoded.SourceSha1(),
     }
 
-    return sf
+    return sf, nil
 }
 
 func (sf *SeriesFooter1) String() string {
@@ -110,14 +120,12 @@ func (sf *SeriesFooter1) DataFnv1aChecksum() uint32 {
 
 // writeFooter1 will write the footer for a series. When this returns, we'll be
 // in the position following the final NUL byte.
-func (sw *StreamWriter) writeSeriesFooter1(sf SeriesFooter) (err error) {
+func (sw *StreamWriter) writeSeriesFooter1(sf SeriesFooter) (size int, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
         }
     }()
-
-    // TDO(dustin): !! We also need to finish off the stream with a metadata struct.
 
     sw.b.Reset()
 
@@ -138,12 +146,21 @@ func (sw *StreamWriter) writeSeriesFooter1(sf SeriesFooter) (err error) {
 
     data := sw.b.FinishedBytes()
 
+    cw, isCounter := sw.w.(*CountingWriter)
+
+    if isCounter == true {
+        seriesProtocol1Logger.Debugf(nil, "Writing (%d) bytes for series footer at (%d).", len(data), cw.Position())
+    } else {
+        seriesProtocol1Logger.Debugf(nil, "Writing (%d) bytes for series footer.", len(data))
+    }
+
     _, err = sw.w.Write(data)
     log.PanicIf(err)
 
     footerVersion := uint16(1)
-    err = sw.writeShadowFooter(footerVersion, FtSeriesFooter, uint16(len(data)))
+    shadowSize, err := sw.writeShadowFooter(footerVersion, FtSeriesFooter, uint16(len(data)))
     log.PanicIf(err)
 
-    return nil
+    size = len(data) + shadowSize
+    return size, nil
 }

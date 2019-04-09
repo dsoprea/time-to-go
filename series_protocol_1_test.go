@@ -2,6 +2,7 @@ package timetogo
 
 import (
     "bytes"
+    "io"
     "os"
     "reflect"
     "testing"
@@ -10,8 +11,10 @@ import (
     "github.com/dsoprea/go-logging"
 )
 
-func TestStreamWriter__series_write_and_read(t *testing.T) {
-    b := new(bytes.Buffer)
+func WriteTestSeriesFooter1(w io.Writer, sw *StreamWriter) (sfOriginal *SeriesFooter1, size int) {
+    // Write time-series data.
+    dataSize, err := w.Write(TestTimeSeriesData)
+    log.PanicIf(err)
 
     // Make sure the timestamp now matches thesame one later.
     headRecordTime := time.Now().UTC()
@@ -27,41 +30,67 @@ func TestStreamWriter__series_write_and_read(t *testing.T) {
 
     dataFnv1aChecksum := uint32(1234)
 
-    sfOriginal :=
+    sfOriginal =
         NewSeriesFooter1(
             headRecordTime,
             tailRecordTime,
-            11,
+            uint64(len(TestTimeSeriesData)),
             22,
             "some_filename",
             sourceSha1,
             dataFnv1aChecksum)
 
+    footerSize, err := sw.writeSeriesFooter1(sfOriginal)
+    log.PanicIf(err)
+
+    if footerSize != 110 {
+        log.Panicf("Series footer was not the correct size: (%d)", size)
+    }
+
+    return sfOriginal, dataSize + footerSize
+}
+
+func TestStreamWriter__SeriesWriteAndRead(t *testing.T) {
+    b := new(bytes.Buffer)
     sw := NewStreamWriter(b)
 
-    err := sw.writeSeriesFooter1(sfOriginal)
-    log.PanicIf(err)
+    sfOriginal, _ := WriteTestSeriesFooter1(b, sw)
 
     raw := b.Bytes()
 
-    if len(raw) != 110 {
+    if len(raw) != 131 {
         t.Fatalf("Encoded data is not the right size: (%d)", len(raw))
     }
 
     r := bytes.NewReader(raw)
 
     // Put us on the trailing NUL byte.
-    _, err = r.Seek(-1, os.SEEK_END)
+    _, err := r.Seek(-1, os.SEEK_END)
     log.PanicIf(err)
 
     sr := NewStreamReader(r)
 
-    sfRecoveredInterface, err := sr.readSeriesFooter()
+    sfRecoveredInterface, dataOffset, nextBoundaryOffset, err := sr.readSeriesFooter()
     log.PanicIf(err)
 
     sfRecovered := sfRecoveredInterface.(*SeriesFooter1)
 
     if reflect.DeepEqual(sfRecovered, sfOriginal) != true {
         t.Fatalf("Recovered record is not correct:\nACTUAL:\n%v\nEXPECTED:\n%v", sfRecovered, sfOriginal)
+    }
+
+    _, err = r.Seek(dataOffset, os.SEEK_SET)
+    log.PanicIf(err)
+
+    recoveredData := make([]byte, len(TestTimeSeriesData))
+    _, err = io.ReadFull(r, recoveredData)
+    log.PanicIf(err)
+
+    if reflect.DeepEqual(recoveredData, TestTimeSeriesData) != true {
+        t.Fatalf("Time-series data was not recovered correctly:\nACTUAL:\n%v\nEXPECTED:\n%v", recoveredData, TestTimeSeriesData)
+    }
+
+    if nextBoundaryOffset != -1 {
+        t.Fatalf("Next boundary offset expected to be just before beginning of file: (%d)", nextBoundaryOffset)
     }
 }

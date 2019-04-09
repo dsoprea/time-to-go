@@ -76,7 +76,7 @@ type StreamIndexedSequenceInfo interface {
     OriginalFilename() string
 
     // AbsolutePosition is the absolute position of the boundary marker (NUL)
-    AbsolutePosition() uint64
+    AbsolutePosition() int64
 }
 
 type StreamFooter interface {
@@ -93,9 +93,10 @@ func NewStreamReader(rs io.ReadSeeker) *StreamReader {
     }
 }
 
-// readFooter reads a non-series block of data (e.g. series footer) backwards
-// from the current position.
-func (sr *StreamReader) readShadowFooter() (footerVersion uint16, footerType FooterType, footerBytes []byte, err error) {
+// readOneFooter reads backwards from the current position (which should be the
+// NUL boundary marker). It will first read the shadow footer and then the raw
+// bytes of the real footer preceding it.
+func (sr *StreamReader) readOneFooter() (footerVersion uint16, footerType FooterType, footerBytes []byte, footerOffset int64, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
@@ -122,29 +123,26 @@ func (sr *StreamReader) readShadowFooter() (footerVersion uint16, footerType Foo
 
     // We're expecting to start on the last byte of any of the shadow-footers
     // in the stream, which we've already read past, above.
-    shadowPosition, err := sr.rs.Seek(-int64(shadowFooterSize)-1, os.SEEK_END)
+    shadowPosition, err := sr.rs.Seek(-int64(shadowFooterSize)-1, os.SEEK_CUR)
     log.PanicIf(err)
 
     err = binary.Read(sr.rs, binary.LittleEndian, &footerVersion)
     log.PanicIf(err)
 
-    streamLogger.Debugf(nil, "SHADOW: FOOTER-VERSION=(%d)", footerVersion)
-
     err = binary.Read(sr.rs, binary.LittleEndian, &footerType)
     log.PanicIf(err)
-
-    streamLogger.Debugf(nil, "SHADOW: FOOTER-TYPE=(%d)", footerType)
 
     var footerLength uint16
     err = binary.Read(sr.rs, binary.LittleEndian, &footerLength)
     log.PanicIf(err)
 
-    streamLogger.Debugf(nil, "SHADOW: FOOTER-LENGTH=(%d)", footerLength)
-
     // Read the encoded footer.
 
-    footerPosition, err := sr.rs.Seek(shadowPosition-int64(footerLength), os.SEEK_SET)
+    absoluteFooterOffset := shadowPosition - int64(footerLength)
+    footerPosition, err := sr.rs.Seek(absoluteFooterOffset, os.SEEK_SET)
     log.PanicIf(err)
+
+    streamLogger.Debugf(nil, "Footer: VERSION=(%d) TYPE=(%d) LENGTH=(%d) POSITION=(%d)", footerVersion, footerType, footerLength, footerPosition)
 
     footerBytes = make([]byte, footerLength)
 
@@ -153,63 +151,79 @@ func (sr *StreamReader) readShadowFooter() (footerVersion uint16, footerType Foo
 
     streamLogger.Debugf(nil, "Reading version (%d) footer of length (%d) at position (%d).", footerVersion, footerLength, footerPosition)
 
-    return footerVersion, footerType, footerBytes, nil
+    return footerVersion, footerType, footerBytes, absoluteFooterOffset, nil
 }
 
 // readSeriesFooter will read the footer for the current series. When this
 // returns, the current position will be the last byte of the time-series that
 // precedes the footer. The last byte will always be a NUL.
-func (sr *StreamReader) readSeriesFooter() (sf SeriesFooter, err error) {
+func (sr *StreamReader) readSeriesFooter() (sf SeriesFooter, dataOffset int64, nextBoundaryOffset int64, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
         }
     }()
 
-    footerVersion, footerType, footerBytes, err := sr.readShadowFooter()
+    seriesFooterVersion, footerType, footerBytes, footerOffset, err := sr.readOneFooter()
     log.PanicIf(err)
 
     if footerType != FtSeriesFooter {
-        log.Panicf("next footer (reverse iteration) is not a series-footer")
+        log.Panicf("next footer (reverse iteration) is not a series-footer: (%d)", footerType)
     }
 
-    switch footerVersion {
+    switch seriesFooterVersion {
     case 1:
-        sm := NewSeriesFooter1FromEncoded(footerBytes)
-
-        return sm, nil
+        sf, err = NewSeriesFooter1FromEncoded(footerBytes)
+        log.PanicIf(err)
+    default:
+        log.Panicf("series footer version not valid (%d)", seriesFooterVersion)
     }
 
-    log.Panicf("series footer version not valid (%d)", footerVersion)
-    panic(nil)
+    dataOffset = footerOffset - int64(sf.BytesLength())
+    nextBoundaryOffset = dataOffset - 1
+
+    if nextBoundaryOffset >= 0 {
+        _, err = sr.rs.Seek(nextBoundaryOffset, os.SEEK_SET)
+        log.PanicIf(err)
+    }
+
+    return sf, dataOffset, nextBoundaryOffset, nil
 }
 
 // readStreamFooter parses data located at the very end of the stream that
 // describes the contents of the stream.
-func (sr *StreamReader) readStreamFooter() (sf StreamFooter, err error) {
+func (sr *StreamReader) readStreamFooter() (sf StreamFooter, nextBoundaryOffset int64, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
         }
     }()
 
-    footerVersion, footerType, footerBytes, err := sr.readShadowFooter()
+    streamFooterVersion, footerType, footerBytes, footerOffset, err := sr.readOneFooter()
     log.PanicIf(err)
 
     if footerType != FtStreamFooter {
-        log.Panicf("next footer (reverse iteration) is not a stream-footer")
+        log.Panicf("next footer (reverse iteration) is not a stream-footer: (%d)", footerType)
     }
 
-    switch footerVersion {
+    switch streamFooterVersion {
     case 1:
-        sf, err := NewStreamFooter1FromEncoded(footerBytes)
+        sf, err = NewStreamFooter1FromEncoded(footerBytes)
         log.PanicIf(err)
 
-        return sf, nil
+    default:
+        log.Panicf("stream footer version not valid (%d)", streamFooterVersion)
+        panic(nil)
     }
 
-    log.Panicf("stream footer version not valid (%d)", footerVersion)
-    panic(nil)
+    nextBoundaryOffset = footerOffset - 1
+
+    if nextBoundaryOffset >= 0 {
+        _, err = sr.rs.Seek(nextBoundaryOffset, os.SEEK_SET)
+        log.PanicIf(err)
+    }
+
+    return sf, nextBoundaryOffset, nil
 }
 
 type StreamWriter struct {
@@ -228,24 +242,45 @@ func NewStreamWriter(w io.Writer) *StreamWriter {
 
 // writeShadowFooter writes a statically-sized footer that follows and describes
 // a dynamically-sized footer.
-func (sw *StreamWriter) writeShadowFooter(footerVersion uint16, footerType FooterType, footerLength uint16) (err error) {
+func (sw *StreamWriter) writeShadowFooter(footerVersion uint16, footerType FooterType, footerLength uint16) (size int, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
         }
     }()
 
+    cw, isCounter := sw.w.(*CountingWriter)
+
+    var initialPosition int
+    if isCounter == true {
+        initialPosition = cw.Position()
+    }
+
     err = binary.Write(sw.w, binary.LittleEndian, footerVersion)
     log.PanicIf(err)
+
+    size += 2
 
     err = binary.Write(sw.w, binary.LittleEndian, footerType)
     log.PanicIf(err)
 
+    size += 1
+
     err = binary.Write(sw.w, binary.LittleEndian, footerLength)
     log.PanicIf(err)
+
+    size += 2
 
     _, err = sw.w.Write([]byte{0})
     log.PanicIf(err)
 
-    return nil
+    size += 1
+
+    if isCounter == true {
+        streamLogger.Debugf(nil, "writeShadowFooter: Wrote (%d) bytes for shadow footer at (%d). Boundary is at (%d).", size, initialPosition, cw.Position()-1)
+    } else {
+        streamLogger.Debugf(nil, "writeShadowFooter: Wrote (%d) bytes for shadow footer at (%d).", size, initialPosition)
+    }
+
+    return size, nil
 }

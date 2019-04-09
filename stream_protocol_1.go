@@ -10,6 +10,10 @@ import (
     "github.com/dsoprea/time-to-go/protocol/ttgstream"
 )
 
+var (
+    streamLogger1 = log.NewLogger("timetogo.stream_protocol_1")
+)
+
 // StreamIndexedSequenceInfo1 briefly describes all series.
 type StreamIndexedSequenceInfo1 struct {
     // headRecordTime is the timestamp of the first record
@@ -22,11 +26,11 @@ type StreamIndexedSequenceInfo1 struct {
     originalFilename string
 
     // absolutePosition is the absolute position of the boundary marker (NUL)
-    absolutePosition uint64
+    absolutePosition int64
 }
 
 // NewStreamIndexedSequenceInfo1 returns a sequence-info structure.
-func NewStreamIndexedSequenceInfo1(headRecordTime, tailRecordTime time.Time, originalFilename string, absolutePosition uint64) *StreamIndexedSequenceInfo1 {
+func NewStreamIndexedSequenceInfo1(headRecordTime, tailRecordTime time.Time, originalFilename string, absolutePosition int64) *StreamIndexedSequenceInfo1 {
     return &StreamIndexedSequenceInfo1{
         headRecordTime:   headRecordTime.UTC(),
         tailRecordTime:   tailRecordTime.UTC(),
@@ -51,7 +55,7 @@ func (sisi StreamIndexedSequenceInfo1) OriginalFilename() string {
 }
 
 // AbsolutePosition is the absolute position of the boundary marker (NUL)
-func (sisi StreamIndexedSequenceInfo1) AbsolutePosition() uint64 {
+func (sisi StreamIndexedSequenceInfo1) AbsolutePosition() int64 {
     return sisi.absolutePosition
 }
 
@@ -59,8 +63,8 @@ func (sisi StreamIndexedSequenceInfo1) String() string {
     return fmt.Sprintf("StreamIndexedSequenceInfo1<HEAD=[%s] TAIL=[%s] FILENAME=[%s] POSITION=(%d)", sisi.headRecordTime, sisi.tailRecordTime, sisi.originalFilename, sisi.absolutePosition)
 }
 
-// writeStreamFooter1 writes a block of data that describes the entire stream.
-func (sw *StreamWriter) writeStreamFooter1(sequences []*StreamIndexedSequenceInfo1) (err error) {
+// writeStreamFooter writes a block of data that describes the entire stream.
+func (sw *StreamWriter) writeStreamFooter(sequences []StreamIndexedSequenceInfo) (size int, err error) {
     defer func() {
         if state := recover(); state != nil {
             if message, ok := state.(string); ok == true {
@@ -106,14 +110,23 @@ func (sw *StreamWriter) writeStreamFooter1(sequences []*StreamIndexedSequenceInf
 
     data := sw.b.FinishedBytes()
 
+    cw, isCounter := sw.w.(*CountingWriter)
+
+    if isCounter == true {
+        streamLogger1.Debugf(nil, "Writing (%d) bytes for stream footer at (%d).", len(data), cw.Position())
+    } else {
+        streamLogger1.Debugf(nil, "Writing (%d) bytes for stream footer.", len(data))
+    }
+
     _, err = sw.w.Write(data)
     log.PanicIf(err)
 
     footerVersion := uint16(1)
-    err = sw.writeShadowFooter(footerVersion, FtStreamFooter, uint16(len(data)))
+    shadowSize, err := sw.writeShadowFooter(footerVersion, FtStreamFooter, uint16(len(data)))
     log.PanicIf(err)
 
-    return nil
+    size = len(data) + shadowSize
+    return size, nil
 }
 
 type StreamFooter1 struct {

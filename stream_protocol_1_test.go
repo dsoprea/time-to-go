@@ -9,7 +9,7 @@ import (
     "github.com/dsoprea/go-logging"
 )
 
-func TestStreamWriter__stream_write_and_read(t *testing.T) {
+func WriteTestStreamFooter1(sw *StreamWriter) ([]StreamIndexedSequenceInfo, int) {
     // Make sure the timestamp now matches thesame one later.
     now := time.Now().UTC()
     now = now.Add(-time.Nanosecond * time.Duration(now.Nanosecond()))
@@ -26,16 +26,26 @@ func TestStreamWriter__stream_write_and_read(t *testing.T) {
         "bb",
         22)
 
-    sequences := []*StreamIndexedSequenceInfo1{
+    series := []StreamIndexedSequenceInfo{
         isis1,
         isis2,
     }
 
+    size, err := sw.writeStreamFooter(series)
+    log.PanicIf(err)
+
+    if size != 142 {
+        log.Panicf("Stream footer is not the right size: (%d)", size)
+    }
+
+    return series, size
+}
+
+func TestStreamWriter__StreamWriteAndRead(t *testing.T) {
     b := new(bytes.Buffer)
     sw := NewStreamWriter(b)
 
-    err := sw.writeStreamFooter1(sequences)
-    log.PanicIf(err)
+    testSeries, _ := WriteTestStreamFooter1(sw)
 
     raw := b.Bytes()
 
@@ -46,24 +56,26 @@ func TestStreamWriter__stream_write_and_read(t *testing.T) {
     r := bytes.NewReader(raw)
 
     // Put us on the trailing NUL byte.
-    _, err = r.Seek(-1, os.SEEK_END)
+    _, err := r.Seek(-1, os.SEEK_END)
     log.PanicIf(err)
 
     sr := NewStreamReader(r)
 
-    sf, err := sr.readStreamFooter()
+    sf, nextBoundaryOffset, err := sr.readStreamFooter()
     log.PanicIf(err)
+
+    if nextBoundaryOffset != -1 {
+        t.Fatalf("Expected next-boundary offset to be just before the beginning of the file: (%d)", nextBoundaryOffset)
+    }
 
     series := sf.Series()
     if len(series) != 2 {
         t.Fatalf("We did not find exactly two series: (%d)", len(series))
     }
 
-    // TODO(dustin): Why don't these fail since we will lose the nanoseconds that the original structs had.
-
-    if series[0] == isis1 {
+    if series[0] == testSeries[0] {
         t.Fatalf("First series is not correct.")
-    } else if series[1] == isis2 {
+    } else if series[1] == testSeries[1] {
         t.Fatalf("Second series is not correct.")
     }
 }

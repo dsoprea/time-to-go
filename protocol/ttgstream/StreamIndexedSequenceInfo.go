@@ -58,16 +58,16 @@ func (rcv *StreamIndexedSequenceInfo) OriginalFilename() []byte {
 	return nil
 }
 
-func (rcv *StreamIndexedSequenceInfo) AbsolutePosition() uint64 {
+func (rcv *StreamIndexedSequenceInfo) AbsolutePosition() int64 {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
 	if o != 0 {
-		return rcv._tab.GetUint64(o + rcv._tab.Pos)
+		return rcv._tab.GetInt64(o + rcv._tab.Pos)
 	}
 	return 0
 }
 
-func (rcv *StreamIndexedSequenceInfo) MutateAbsolutePosition(n uint64) bool {
-	return rcv._tab.MutateUint64Slot(10, n)
+func (rcv *StreamIndexedSequenceInfo) MutateAbsolutePosition(n int64) bool {
+	return rcv._tab.MutateInt64Slot(10, n)
 }
 
 func StreamIndexedSequenceInfoStart(builder *flatbuffers.Builder) {
@@ -82,8 +82,8 @@ func StreamIndexedSequenceInfoAddTailRecordEpoch(builder *flatbuffers.Builder, t
 func StreamIndexedSequenceInfoAddOriginalFilename(builder *flatbuffers.Builder, originalFilename flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(2, flatbuffers.UOffsetT(originalFilename), 0)
 }
-func StreamIndexedSequenceInfoAddAbsolutePosition(builder *flatbuffers.Builder, absolutePosition uint64) {
-	builder.PrependUint64Slot(3, absolutePosition, 0)
+func StreamIndexedSequenceInfoAddAbsolutePosition(builder *flatbuffers.Builder, absolutePosition int64) {
+	builder.PrependInt64Slot(3, absolutePosition, 0)
 }
 func StreamIndexedSequenceInfoEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
