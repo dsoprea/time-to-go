@@ -42,7 +42,9 @@ func WriteTestStream() (raw []byte, originalSeriesFooter *SeriesFooter1, seriesS
         sourceSha1,
         dataFnv1aChecksum)
 
-    err := sb.AddSeries(TestTimeSeriesData, originalSeriesFooter)
+    dataReader := bytes.NewBuffer(TestTimeSeriesData)
+
+    err := sb.AddSeries(dataReader, originalSeriesFooter)
     log.PanicIf(err)
 
     seriesSize = sb.nextOffset

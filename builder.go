@@ -6,6 +6,12 @@ import (
     "github.com/dsoprea/go-logging"
 )
 
+const (
+    // The size of the buffer to use for the copy of the time-series data into
+    // the output stream.
+    SeriesDataCopyBufferSize = 1024 * 1024
+)
+
 type StreamBuilder struct {
     w      io.Writer
     sw     *StreamWriter
@@ -13,6 +19,8 @@ type StreamBuilder struct {
 
     nextOffset int64
     offsets    []int64
+
+    copyBuffer []byte
 }
 
 func NewStreamBuilder(w io.Writer) *StreamBuilder {
@@ -28,15 +36,21 @@ func NewStreamBuilder(w io.Writer) *StreamBuilder {
     }
 }
 
-// AddSeries adds a single series and associated metadata to the stream.
-func (sb *StreamBuilder) AddSeries(encoded []byte, sf SeriesFooter) (err error) {
+// AddSeries adds a single series and associated metadata to the stream. The
+// actual series data is provided to us by the caller in serialized (encoded)
+// form from whatever their original format was.
+func (sb *StreamBuilder) AddSeries(encodedSeriesDataReader io.Reader, sf SeriesFooter) (err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
         }
     }()
 
-    dataSize, err := sb.w.Write(encoded)
+    if sb.copyBuffer == nil {
+        sb.copyBuffer = make([]byte, SeriesDataCopyBufferSize)
+    }
+
+    dataSize, err := io.CopyBuffer(sb.w, encodedSeriesDataReader, sb.copyBuffer)
     log.PanicIf(err)
 
     footerSize, err := sb.sw.writeSeriesFooter1(sf)

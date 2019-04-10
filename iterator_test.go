@@ -42,7 +42,9 @@ func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1) {
         sourceSha1,
         dataFnv1aChecksum)
 
-    err := sb.AddSeries(TestTimeSeriesData, originalSeriesFooter1)
+    dataReader1 := bytes.NewBuffer(TestTimeSeriesData)
+
+    err := sb.AddSeries(dataReader1, originalSeriesFooter1)
     log.PanicIf(err)
 
     seriesSize1 := sb.nextOffset
@@ -70,7 +72,9 @@ func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1) {
         sourceSha12,
         dataFnv1aChecksum2)
 
-    err = sb.AddSeries(TestTimeSeriesData2, originalSeriesFooter2)
+    dataReader2 := bytes.NewBuffer(TestTimeSeriesData2)
+
+    err = sb.AddSeries(dataReader2, originalSeriesFooter2)
     log.PanicIf(err)
 
     seriesSize2 := sb.nextOffset
