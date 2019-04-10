@@ -53,7 +53,7 @@ func WriteTestStream() (raw []byte, originalSeriesFooter *SeriesFooter1, seriesS
 
     if len(raw) != 337 {
         log.Panicf("encoded data is not the right size: (%d)", len(raw))
-    } else if totalSize != uint64(len(raw)) {
+    } else if totalSize != len(raw) {
         log.Panicf("Stream components are not the right size: SERIES-SIZE=(%d) STREAM-SIZE=(%d)", totalSize, len(raw))
     }
 

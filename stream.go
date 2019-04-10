@@ -245,7 +245,7 @@ func (sr *StreamReader) readStreamFooter() (sf StreamFooter, nextBoundaryOffset 
     return sf, nextBoundaryOffset, totalFooterSize, nil
 }
 
-func (sr *StreamReader) ReadSeriesInfoWithIndexedInfo(sisi StreamIndexedSequenceInfo) (seriesFooter SeriesFooter, seriesSize int, err error) {
+func (sr *StreamReader) ReadSeriesInfoWithIndexedInfo(sisi StreamIndexedSequenceInfo) (seriesFooter SeriesFooter, dataOffset int64, seriesSize int, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
@@ -254,17 +254,29 @@ func (sr *StreamReader) ReadSeriesInfoWithIndexedInfo(sisi StreamIndexedSequence
 
     // TODO(dustin): !! Add unit-test.
 
-    _, err = sr.rs.Seek(sisi.AbsolutePosition(), os.SEEK_SET)
+    seriesFooter, dataOffset, seriesSize, err = sr.ReadSeriesInfoWithBoundaryPosition(sisi.AbsolutePosition())
+    log.PanicIf(err)
+
+    return seriesFooter, dataOffset, seriesSize, nil
+}
+
+func (sr *StreamReader) ReadSeriesInfoWithBoundaryPosition(position int64) (seriesFooter SeriesFooter, dataOffset int64, seriesSize int, err error) {
+    defer func() {
+        if state := recover(); state != nil {
+            err = log.Wrap(state.(error))
+        }
+    }()
+
+    // TODO(dustin): !! Add unit-test.
+
+    _, err = sr.rs.Seek(position, os.SEEK_SET)
     log.PanicIf(err)
 
     seriesFooter, dataOffset, _, footerSize, err := sr.readSeriesFooter()
     log.PanicIf(err)
 
-    _, err = sr.rs.Seek(dataOffset, os.SEEK_SET)
-    log.PanicIf(err)
-
     seriesSize = footerSize + int(seriesFooter.BytesLength())
-    return seriesFooter, seriesSize, nil
+    return seriesFooter, dataOffset, seriesSize, nil
 }
 
 func (sr *StreamReader) ReadSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo, dataWriter io.Writer) (seriesFooter SeriesFooter, seriesSize int, checksumOk bool, err error) {
@@ -276,7 +288,12 @@ func (sr *StreamReader) ReadSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo
 
     // TODO(dustin): !! Add unit-test.
 
-    seriesFooter, seriesSize, err = sr.ReadSeriesInfoWithIndexedInfo(sisi)
+    seriesFooter, dataOffset, seriesSize, err := sr.ReadSeriesInfoWithIndexedInfo(sisi)
+    log.PanicIf(err)
+
+    // This is at the very front of all of the related data and metadata for
+    // this series (time-series data, then footer, then shadow footer).
+    _, err = sr.rs.Seek(dataOffset, os.SEEK_SET)
     log.PanicIf(err)
 
     // Calculate the checksum.

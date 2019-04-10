@@ -43,6 +43,16 @@ func NewStreamIndexedSequenceInfo1(uuid string, headRecordTime, tailRecordTime t
     }
 }
 
+func NewStreamIndexedSequenceInfo1WithSeriesFooter(seriesFooter SeriesFooter, absolutePosition int64) *StreamIndexedSequenceInfo1 {
+    return &StreamIndexedSequenceInfo1{
+        uuid:             seriesFooter.Uuid(),
+        headRecordTime:   seriesFooter.HeadRecordTime().UTC(),
+        tailRecordTime:   seriesFooter.TailRecordTime().UTC(),
+        originalFilename: seriesFooter.OriginalFilename(),
+        absolutePosition: absolutePosition,
+    }
+}
+
 // Uuid is the timestamp of the first record
 func (sisi StreamIndexedSequenceInfo1) Uuid() string {
     return sisi.uuid
@@ -76,11 +86,7 @@ func (sisi StreamIndexedSequenceInfo1) String() string {
 func (sw *StreamWriter) writeStreamFooter(sequences []StreamIndexedSequenceInfo) (size int, err error) {
     defer func() {
         if state := recover(); state != nil {
-            if message, ok := state.(string); ok == true {
-                err = log.Errorf(message)
-            } else {
-                err = log.Wrap(state.(error))
-            }
+            err = log.Wrap(state.(error))
         }
     }()
 
@@ -144,6 +150,29 @@ func (sw *StreamWriter) writeStreamFooter(sequences []StreamIndexedSequenceInfo)
 
     size = len(data) + shadowSize
     return size, nil
+}
+
+func (sw *StreamWriter) writeStreamFooterWithSeriesFooters(series []SeriesFooter, offsets []int64) (footerSize int, err error) {
+    defer func() {
+        if state := recover(); state != nil {
+            err = log.Wrap(state.(error))
+        }
+    }()
+
+    indexedSeries := make([]StreamIndexedSequenceInfo, len(series))
+    for i, seriesFooter := range series {
+        sisi :=
+            NewStreamIndexedSequenceInfo1WithSeriesFooter(
+                seriesFooter,
+                offsets[i])
+
+        indexedSeries[i] = sisi
+    }
+
+    footerSize, err = sw.writeStreamFooter(indexedSeries)
+    log.PanicIf(err)
+
+    return footerSize, nil
 }
 
 type StreamFooter1 struct {

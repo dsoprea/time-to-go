@@ -8,12 +8,6 @@ import (
     "github.com/dsoprea/go-logging"
 )
 
-const (
-    // The size of the buffer to use for the copy of the time-series data into
-    // the output stream.
-    SeriesDataCopyBufferSize = 1024 * 1024
-)
-
 type StreamBuilder struct {
     w      io.Writer
     sw     *StreamWriter
@@ -71,7 +65,25 @@ func (sb *StreamBuilder) AddSeries(encodedSeriesDataReader io.Reader, sf SeriesF
 
     log.PanicIf(err)
 
-    sb.nextOffset += int64(dataSize) + int64(footerSize)
+    totalSeriesSize := int(copiedCount) + footerSize
+    sb.nextOffset += int64(totalSeriesSize)
+    sb.offsets = append(sb.offsets, sb.nextOffset-1)
+
+    sb.series = append(sb.series, sf)
+
+    return nil
+}
+
+// AddSeriesNoWrite logs a single series and associated metadata but doesn't
+// actually write. It will be written through other means.
+func (sb *StreamBuilder) AddSeriesNoWrite(totalSeriesSize int, sf SeriesFooter) (err error) {
+    defer func() {
+        if state := recover(); state != nil {
+            err = log.Wrap(state.(error))
+        }
+    }()
+
+    sb.nextOffset += int64(totalSeriesSize)
     sb.offsets = append(sb.offsets, sb.nextOffset-1)
 
     sb.series = append(sb.series, sf)
@@ -80,7 +92,7 @@ func (sb *StreamBuilder) AddSeries(encodedSeriesDataReader io.Reader, sf SeriesF
 }
 
 // Finish will finalize/complete the stream.
-func (sb *StreamBuilder) Finish() (totalSize uint64, err error) {
+func (sb *StreamBuilder) Finish() (totalSize int, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
@@ -89,23 +101,11 @@ func (sb *StreamBuilder) Finish() (totalSize uint64, err error) {
 
     // TODO(dustin): !! Update stream-footer to have create-time and last-update time.
 
-    series := make([]StreamIndexedSequenceInfo, len(sb.series))
-    for i, seriesFooter := range sb.series {
-        sisi := NewStreamIndexedSequenceInfo1(
-            seriesFooter.Uuid(),
-            seriesFooter.HeadRecordTime(),
-            seriesFooter.TailRecordTime(),
-            seriesFooter.OriginalFilename(),
-            sb.offsets[i])
-
-        series[i] = sisi
-    }
-
-    footerSize, err := sb.sw.writeStreamFooter(series)
+    footerSize, err := sb.sw.writeStreamFooterWithSeriesFooters(sb.series, sb.offsets)
     log.PanicIf(err)
 
     // For completeness, step the offset.
     sb.nextOffset += int64(footerSize)
 
-    return uint64(sb.nextOffset), nil
+    return int(sb.nextOffset), nil
 }

@@ -88,7 +88,7 @@ func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1) {
         log.Panicf("stream data is not the right size: (%d)", len(raw))
     }
 
-    if totalSize != uint64(len(raw)) {
+    if totalSize != len(raw) {
         log.Panicf("Stream components are not the right size: SERIES-SIZE=(%d) STREAM-SIZE=(%d)", totalSize, len(raw))
     }
 
