@@ -54,7 +54,7 @@ func NewIterator(sr *StreamReader) (it *Iterator, err error) {
     return it, nil
 }
 
-func (it *Iterator) Iterate(dataWriter io.Writer) (seriesFooter SeriesFooter, err error) {
+func (it *Iterator) Iterate(dataWriter io.Writer) (seriesFooter SeriesFooter, checksumOk bool, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
@@ -62,14 +62,14 @@ func (it *Iterator) Iterate(dataWriter io.Writer) (seriesFooter SeriesFooter, er
     }()
 
     if it.currentSeries < 0 {
-        return nil, io.EOF
+        return nil, false, io.EOF
     }
 
     sisi := it.seriesInfo[it.currentSeries]
     it.currentSeries--
 
-    seriesFooter, _, err = it.sr.ReadSeriesWithIndexedInfo(sisi, dataWriter)
+    seriesFooter, _, checksumOk, err = it.sr.ReadSeriesWithIndexedInfo(sisi, dataWriter)
     log.PanicIf(err)
 
-    return seriesFooter, nil
+    return seriesFooter, checksumOk, nil
 }

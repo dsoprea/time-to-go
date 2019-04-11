@@ -43,22 +43,24 @@ type SeriesFooter1 struct {
     dataFnv1aChecksum uint32
 }
 
-// NewSeriesFooter1 returns a series footer structure. Version 1.
-func NewSeriesFooter1(headRecordTime time.Time, tailRecordTime time.Time, bytesLength, recordCount uint64, originalFilename string, sourceSha1 []byte, dataFnv1aChecksum uint32) *SeriesFooter1 {
+// NewSeriesFooter1 returns a series footer structure. Version 1. The checksum
+// will be populated on write.
+func NewSeriesFooter1(headRecordTime time.Time, tailRecordTime time.Time, bytesLength, recordCount uint64, originalFilename string, sourceSha1 []byte) *SeriesFooter1 {
     uuid := uuid.New().String()
 
     return &SeriesFooter1{
-        uuid:              uuid,
-        headRecordTime:    headRecordTime.UTC(),
-        tailRecordTime:    tailRecordTime.UTC(),
-        bytesLength:       bytesLength,
-        recordCount:       recordCount,
-        originalFilename:  originalFilename,
-        sourceSha1:        sourceSha1,
-        dataFnv1aChecksum: dataFnv1aChecksum,
+        uuid:             uuid,
+        headRecordTime:   headRecordTime.UTC(),
+        tailRecordTime:   tailRecordTime.UTC(),
+        bytesLength:      bytesLength,
+        recordCount:      recordCount,
+        originalFilename: originalFilename,
+        sourceSha1:       sourceSha1,
     }
 }
 
+// NewSeriesFooter1FromEncoded returns a series footer struct (version 1). The
+// checksum that was recorded during the write will be populated.
 func NewSeriesFooter1FromEncoded(footerBytes []byte) (sf *SeriesFooter1, err error) {
     defer func() {
         if state := recover(); state != nil {

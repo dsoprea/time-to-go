@@ -29,8 +29,6 @@ func WriteTestSeriesFooter1(w io.Writer, sw *StreamWriter) (sfOriginal *SeriesFo
         33,
     }
 
-    dataFnv1aChecksum := uint32(1234)
-
     sfOriginal =
         NewSeriesFooter1(
             headRecordTime,
@@ -38,8 +36,7 @@ func WriteTestSeriesFooter1(w io.Writer, sw *StreamWriter) (sfOriginal *SeriesFo
             uint64(len(TestTimeSeriesData)),
             22,
             "some_filename",
-            sourceSha1,
-            dataFnv1aChecksum)
+            sourceSha1)
 
     // Make sure we actually have a UUID.
     _, err = uuid.Parse(sfOriginal.Uuid())

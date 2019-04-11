@@ -31,16 +31,13 @@ func WriteTestStream() (raw []byte, originalSeriesFooter *SeriesFooter1, seriesS
         33,
     }
 
-    dataFnv1aChecksum := uint32(1234)
-
     originalSeriesFooter = NewSeriesFooter1(
         headRecordTime,
         tailRecordTime,
         uint64(len(TestTimeSeriesData)),
         22,
         "some_filename",
-        sourceSha1,
-        dataFnv1aChecksum)
+        sourceSha1)
 
     dataReader := bytes.NewBuffer(TestTimeSeriesData)
 

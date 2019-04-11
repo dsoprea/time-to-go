@@ -2,10 +2,11 @@ package timetogo
 
 import (
     "io"
+    "os"
     "time"
 
     "encoding/binary"
-    "os"
+    "hash/fnv"
 
     "github.com/dsoprea/go-logging"
     "github.com/google/flatbuffers/go"
@@ -266,7 +267,7 @@ func (sr *StreamReader) ReadSeriesInfoWithIndexedInfo(sisi StreamIndexedSequence
     return seriesFooter, seriesSize, nil
 }
 
-func (sr *StreamReader) ReadSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo, dataWriter io.Writer) (seriesFooter SeriesFooter, seriesSize int, err error) {
+func (sr *StreamReader) ReadSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo, dataWriter io.Writer) (seriesFooter SeriesFooter, seriesSize int, checksumOk bool, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
@@ -278,12 +279,20 @@ func (sr *StreamReader) ReadSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo
     seriesFooter, seriesSize, err = sr.ReadSeriesInfoWithIndexedInfo(sisi)
     log.PanicIf(err)
 
-    // TODO(dustin): !! Update to take a Writer and return whether the checksum matches.
+    // Calculate the checksum.
 
-    _, err = io.CopyN(dataWriter, sr.rs, int64(seriesFooter.BytesLength()))
+    fnv1a := fnv.New32a()
+
+    teeWriter := io.MultiWriter(dataWriter, fnv1a)
+
+    _, err = io.CopyN(teeWriter, sr.rs, int64(seriesFooter.BytesLength()))
     log.PanicIf(err)
 
-    return seriesFooter, seriesSize, nil
+    fnvChecksum := fnv1a.Sum32()
+
+    checksumOk = fnvChecksum == seriesFooter.DataFnv1aChecksum()
+
+    return seriesFooter, seriesSize, checksumOk, nil
 }
 
 // Reset will put us at the end of the file. This is required in order to

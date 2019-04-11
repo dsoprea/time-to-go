@@ -31,16 +31,13 @@ func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1) {
         33,
     }
 
-    dataFnv1aChecksum := uint32(1234)
-
     originalSeriesFooter1 := NewSeriesFooter1(
         headRecordTime,
         tailRecordTime,
         uint64(len(TestTimeSeriesData)),
         22,
         "some_filename",
-        sourceSha1,
-        dataFnv1aChecksum)
+        sourceSha1)
 
     dataReader1 := bytes.NewBuffer(TestTimeSeriesData)
 
@@ -61,16 +58,13 @@ func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1) {
         66,
     }
 
-    dataFnv1aChecksum2 := uint32(1234)
-
     originalSeriesFooter2 := NewSeriesFooter1(
         headRecordTime.Add(time.Second*10),
         tailRecordTime.Add(time.Second*10),
         uint64(len(TestTimeSeriesData2)),
         33,
         "some_filename2",
-        sourceSha12,
-        dataFnv1aChecksum2)
+        sourceSha12)
 
     dataReader2 := bytes.NewBuffer(TestTimeSeriesData2)
 
@@ -127,8 +121,12 @@ func TestNewIterator_Iterate(t *testing.T) {
 
     b2 := &bytes.Buffer{}
 
-    seriesFooterInterface2, err := it.Iterate(b2)
+    seriesFooterInterface2, checksumOk, err := it.Iterate(b2)
     log.PanicIf(err)
+
+    if checksumOk != true {
+        t.Fatalf("Checksum does not match.")
+    }
 
     seriesData2 := b2.Bytes()
 
@@ -170,8 +168,12 @@ func TestNewIterator_Iterate(t *testing.T) {
 
     b1 := &bytes.Buffer{}
 
-    seriesFooterInterface1, err := it.Iterate(b1)
+    seriesFooterInterface1, checksumOk, err := it.Iterate(b1)
     log.PanicIf(err)
+
+    if checksumOk != true {
+        t.Fatalf("Checksum does not match.")
+    }
 
     seriesData1 := b1.Bytes()
 
@@ -211,7 +213,7 @@ func TestNewIterator_Iterate(t *testing.T) {
 
     // Check EOF.
 
-    _, err = it.Iterate(nil)
+    _, _, err = it.Iterate(nil)
     if err != io.EOF {
         t.Fatalf("Expected EOF.")
     }
