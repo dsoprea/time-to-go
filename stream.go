@@ -266,7 +266,7 @@ func (sr *StreamReader) ReadSeriesInfoWithIndexedInfo(sisi StreamIndexedSequence
     return seriesFooter, seriesSize, nil
 }
 
-func (sr *StreamReader) ReadSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo) (seriesFooter SeriesFooter, seriesData []byte, seriesSize int, err error) {
+func (sr *StreamReader) ReadSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo, dataWriter io.Writer) (seriesFooter SeriesFooter, seriesSize int, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
@@ -278,14 +278,12 @@ func (sr *StreamReader) ReadSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo
     seriesFooter, seriesSize, err = sr.ReadSeriesInfoWithIndexedInfo(sisi)
     log.PanicIf(err)
 
-    seriesData = make([]byte, seriesFooter.BytesLength())
-
     // TODO(dustin): !! Update to take a Writer and return whether the checksum matches.
 
-    _, err = io.ReadFull(sr.rs, seriesData)
+    _, err = io.CopyN(dataWriter, sr.rs, int64(seriesFooter.BytesLength()))
     log.PanicIf(err)
 
-    return seriesFooter, seriesData, seriesSize, nil
+    return seriesFooter, seriesSize, nil
 }
 
 // Reset will put us at the end of the file. This is required in order to

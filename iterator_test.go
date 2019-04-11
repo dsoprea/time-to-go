@@ -125,8 +125,12 @@ func TestNewIterator_Iterate(t *testing.T) {
 
     // Read first series.
 
-    seriesFooterInterface2, seriesData2, err := it.Iterate()
+    b2 := &bytes.Buffer{}
+
+    seriesFooterInterface2, err := it.Iterate(b2)
     log.PanicIf(err)
+
+    seriesData2 := b2.Bytes()
 
     if it.Current() != 0 {
         t.Fatalf("The current series is not (1): (%d)", it.Current())
@@ -164,8 +168,12 @@ func TestNewIterator_Iterate(t *testing.T) {
 
     // Read second series.
 
-    seriesFooterInterface1, seriesData1, err := it.Iterate()
+    b1 := &bytes.Buffer{}
+
+    seriesFooterInterface1, err := it.Iterate(b1)
     log.PanicIf(err)
+
+    seriesData1 := b1.Bytes()
 
     if it.Current() != -1 {
         t.Fatalf("The current series is not (-1): (%d)", it.Current())
@@ -203,7 +211,7 @@ func TestNewIterator_Iterate(t *testing.T) {
 
     // Check EOF.
 
-    _, _, err = it.Iterate()
+    _, err = it.Iterate(nil)
     if err != io.EOF {
         t.Fatalf("Expected EOF.")
     }
