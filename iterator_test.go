@@ -154,6 +154,8 @@ func TestNewIterator_Iterate(t *testing.T) {
 
     recoveredSeriesFooter2 := seriesFooterInterface2.(*SeriesFooter1)
 
+    originalFooters[1].dataFnv1aChecksum = 0xba7ac887
+
     if reflect.DeepEqual(recoveredSeriesFooter2, originalFooters[1]) != true {
         t.Fatalf("Series footer 2 was not recovered correctly.")
     } else if bytes.Compare(seriesData2, TestTimeSeriesData2) != 0 {
@@ -190,6 +192,8 @@ func TestNewIterator_Iterate(t *testing.T) {
     }
 
     recoveredSeriesFooter1 := seriesFooterInterface1.(*SeriesFooter1)
+
+    originalFooters[0].dataFnv1aChecksum = 0xefd515f5
 
     if reflect.DeepEqual(recoveredSeriesFooter1, originalFooters[0]) != true {
         t.Fatalf("Series footer 1 was not recovered correctly.")

@@ -100,6 +100,8 @@ func TestBuilder_Finish(t *testing.T) {
 
     recoveredSeriesFooter := recoveredSeriesFooterInterface.(*SeriesFooter1)
 
+    originalSeriesFooter.dataFnv1aChecksum = 4023719413
+
     if reflect.DeepEqual(recoveredSeriesFooter, originalSeriesFooter) != true {
         t.Fatalf("Recovered record is not correct:\nACTUAL:\n%v\nEXPECTED:\n%v", recoveredSeriesFooter, originalSeriesFooter)
     }

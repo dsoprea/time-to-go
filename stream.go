@@ -280,6 +280,8 @@ func (sr *StreamReader) ReadSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo
 
     seriesData = make([]byte, seriesFooter.BytesLength())
 
+    // TODO(dustin): !! Update to take a Writer and return whether the checksum matches.
+
     _, err = io.ReadFull(sr.rs, seriesData)
     log.PanicIf(err)
 

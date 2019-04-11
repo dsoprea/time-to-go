@@ -135,7 +135,7 @@ func (sf *SeriesFooter1) DataFnv1aChecksum() uint32 {
 
 // writeFooter1 will write the footer for a series. When this returns, we'll be
 // in the position following the final NUL byte.
-func (sw *StreamWriter) writeSeriesFooter1(sf SeriesFooter) (size int, err error) {
+func (sw *StreamWriter) writeSeriesFooter1(sf SeriesFooter, fnvChecksum uint32) (size int, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = log.Wrap(state.(error))
@@ -156,7 +156,7 @@ func (sw *StreamWriter) writeSeriesFooter1(sf SeriesFooter) (size int, err error
     ttgstream.SeriesFooter1AddRecordCount(sw.b, sf.RecordCount())
     ttgstream.SeriesFooter1AddOriginalFilename(sw.b, filenamePosition)
     ttgstream.SeriesFooter1AddSourceSha1(sw.b, sha1Position)
-    ttgstream.SeriesFooter1AddDataFnv1aChecksum(sw.b, sf.DataFnv1aChecksum())
+    ttgstream.SeriesFooter1AddDataFnv1aChecksum(sw.b, fnvChecksum)
     sfPosition := ttgstream.SeriesFooter1End(sw.b)
 
     sw.b.Finish(sfPosition)

@@ -3,6 +3,8 @@ package timetogo
 import (
     "io"
 
+    "hash/fnv"
+
     "github.com/dsoprea/go-logging"
 )
 
@@ -50,10 +52,23 @@ func (sb *StreamBuilder) AddSeries(encodedSeriesDataReader io.Reader, sf SeriesF
         sb.copyBuffer = make([]byte, SeriesDataCopyBufferSize)
     }
 
-    dataSize, err := io.CopyBuffer(sb.w, encodedSeriesDataReader, sb.copyBuffer)
+    fnv1a := fnv.New32a()
+
+    teeWriter := io.MultiWriter(sb.w, fnv1a)
+
+    copiedCount, err := io.CopyBuffer(teeWriter, encodedSeriesDataReader, sb.copyBuffer)
     log.PanicIf(err)
 
-    footerSize, err := sb.sw.writeSeriesFooter1(sf)
+    fnvChecksum := fnv1a.Sum32()
+
+    // Make sure we copied as much as we expected to.
+    expectedCount := sf.BytesLength()
+    if uint64(copiedCount) != expectedCount {
+        log.Panicf("series data size (%d) does not equal size (%d) in series footer", copiedCount, expectedCount)
+    }
+
+    footerSize, err := sb.sw.writeSeriesFooter1(sf, fnvChecksum)
+
     log.PanicIf(err)
 
     sb.nextOffset += int64(dataSize) + int64(footerSize)

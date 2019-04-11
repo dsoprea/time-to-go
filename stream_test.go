@@ -78,6 +78,8 @@ func TestStream__Protocol1(t *testing.T) {
 
     seriesFooter := sfRecoveredInterface.(*SeriesFooter1)
 
+    testSeriesFooter.dataFnv1aChecksum = 305419896
+
     if reflect.DeepEqual(seriesFooter, testSeriesFooter) != true {
         t.Fatalf("Recovered record is not correct:\nACTUAL:\n%v\nEXPECTED:\n%v", seriesFooter, testSeriesFooter)
     }

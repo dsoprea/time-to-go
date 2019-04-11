@@ -45,7 +45,7 @@ func WriteTestSeriesFooter1(w io.Writer, sw *StreamWriter) (sfOriginal *SeriesFo
     _, err = uuid.Parse(sfOriginal.Uuid())
     log.PanicIf(err)
 
-    footerSize, err := sw.writeSeriesFooter1(sfOriginal)
+    footerSize, err := sw.writeSeriesFooter1(sfOriginal, 0x12345678)
     log.PanicIf(err)
 
     size = dataSize + footerSize
@@ -80,6 +80,7 @@ func TestStreamWriter__SeriesWriteAndRead(t *testing.T) {
     log.PanicIf(err)
 
     sfRecovered := sfRecoveredInterface.(*SeriesFooter1)
+    sfOriginal.dataFnv1aChecksum = 305419896
 
     if reflect.DeepEqual(sfRecovered, sfOriginal) != true {
         t.Fatalf("Recovered record is not correct:\nACTUAL:\n%v\nEXPECTED:\n%v", sfRecovered, sfOriginal)
