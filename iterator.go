@@ -1,75 +1,75 @@
 package timetogo
 
 import (
-    "io"
+	"io"
 
-    "github.com/dsoprea/go-logging"
+	"github.com/dsoprea/go-logging"
 )
 
 // Iterator efficiently steps backwards through the series in a stream in order.
 type Iterator struct {
-    sr            *StreamReader
-    seriesInfo    []StreamIndexedSequenceInfo
-    currentSeries int
+	sr            *StreamReader
+	seriesInfo    []StreamIndexedSequenceInfo
+	currentSeries int
 }
 
 // Count returns the number of series in the stream.
 func (it *Iterator) Count() int {
-    return len(it.seriesInfo)
+	return len(it.seriesInfo)
 }
 
 // Current returns the number of the series that we're currently on. This
 // decrements after each call and returns less than zero on EOF.
 func (it *Iterator) Current() int {
-    return it.currentSeries
+	return it.currentSeries
 }
 
 // SeriesInfo efficiently returns summary information for one of the series in
 // the stream.
 func (it *Iterator) SeriesInfo(i int) StreamIndexedSequenceInfo {
-    return it.seriesInfo[i]
+	return it.seriesInfo[i]
 }
 
 func NewIterator(sr *StreamReader) (it *Iterator, err error) {
-    defer func() {
-        if state := recover(); state != nil {
-            err = log.Wrap(state.(error))
-        }
-    }()
+	defer func() {
+		if state := recover(); state != nil {
+			err = log.Wrap(state.(error))
+		}
+	}()
 
-    err = sr.Reset()
-    log.PanicIf(err)
+	err = sr.Reset()
+	log.PanicIf(err)
 
-    streamFooter, _, _, err := sr.readStreamFooter()
-    log.PanicIf(err)
+	streamFooter, _, _, err := sr.readStreamFooter()
+	log.PanicIf(err)
 
-    seriesInfo := streamFooter.Series()
+	seriesInfo := streamFooter.Series()
 
-    it = &Iterator{
-        sr:            sr,
-        seriesInfo:    seriesInfo,
-        currentSeries: len(seriesInfo) - 1,
-    }
+	it = &Iterator{
+		sr:            sr,
+		seriesInfo:    seriesInfo,
+		currentSeries: len(seriesInfo) - 1,
+	}
 
-    return it, nil
+	return it, nil
 }
 
 func (it *Iterator) Iterate(dataWriter io.Writer) (seriesFooter SeriesFooter, checksumOk bool, err error) {
-    defer func() {
-        if state := recover(); state != nil {
-            err = log.Wrap(state.(error))
-        }
-    }()
+	defer func() {
+		if state := recover(); state != nil {
+			err = log.Wrap(state.(error))
+		}
+	}()
 
-    if it.currentSeries < 0 {
-        return nil, false, io.EOF
-    }
+	if it.currentSeries < 0 {
+		return nil, false, io.EOF
+	}
 
-    sisi := it.seriesInfo[it.currentSeries]
-    it.currentSeries--
+	sisi := it.seriesInfo[it.currentSeries]
+	it.currentSeries--
 
-    seriesFooter, _, checksumOk, err = it.sr.ReadSeriesWithIndexedInfo(sisi, dataWriter)
-    log.PanicIf(err)
+	seriesFooter, _, checksumOk, err = it.sr.ReadSeriesWithIndexedInfo(sisi, dataWriter)
+	log.PanicIf(err)
 
-    return seriesFooter, checksumOk, nil
+	return seriesFooter, checksumOk, nil
 }
