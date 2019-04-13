@@ -132,14 +132,7 @@ func (sw *StreamWriter) writeStreamFooter(sequences []StreamIndexedSequenceInfo)
 	sw.b.Finish(sfPosition)
 
 	data := sw.b.FinishedBytes()
-
-	cw, isCounter := sw.w.(*CountingWriter)
-
-	if isCounter == true {
-		streamLogger1.Debugf(nil, "Writing (%d) bytes for stream footer at (%d).", len(data), cw.Position())
-	} else {
-		streamLogger1.Debugf(nil, "Writing (%d) bytes for stream footer.", len(data))
-	}
+	streamLogger1.Debugf(nil, "Writing (%d) bytes for stream footer.", len(data))
 
 	_, err = sw.w.Write(data)
 	log.PanicIf(err)

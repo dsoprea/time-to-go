@@ -164,14 +164,7 @@ func (sw *StreamWriter) writeSeriesFooter1(sf SeriesFooter, fnvChecksum uint32) 
 	sw.b.Finish(sfPosition)
 
 	data := sw.b.FinishedBytes()
-
-	cw, isCounter := sw.w.(*CountingWriter)
-
-	if isCounter == true {
-		seriesProtocol1Logger.Debugf(nil, "Writing (%d) bytes for series footer at (%d).", len(data), cw.Position())
-	} else {
-		seriesProtocol1Logger.Debugf(nil, "Writing (%d) bytes for series footer.", len(data))
-	}
+	seriesProtocol1Logger.Debugf(nil, "Writing (%d) bytes for series footer.", len(data))
 
 	_, err = sw.w.Write(data)
 	log.PanicIf(err)

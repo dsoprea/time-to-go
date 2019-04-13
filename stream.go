@@ -351,13 +351,6 @@ func (sw *StreamWriter) writeShadowFooter(footerVersion uint16, footerType Foote
 		}
 	}()
 
-	cw, isCounter := sw.w.(*CountingWriter)
-
-	var initialPosition int
-	if isCounter == true {
-		initialPosition = cw.Position()
-	}
-
 	err = binary.Write(sw.w, binary.LittleEndian, footerVersion)
 	log.PanicIf(err)
 
@@ -378,11 +371,7 @@ func (sw *StreamWriter) writeShadowFooter(footerVersion uint16, footerType Foote
 
 	size += 1
 
-	if isCounter == true {
-		streamLogger.Debugf(nil, "writeShadowFooter: Wrote (%d) bytes for shadow footer at (%d). Boundary is at (%d).", size, initialPosition, cw.Position()-1)
-	} else {
-		streamLogger.Debugf(nil, "writeShadowFooter: Wrote (%d) bytes for shadow footer at (%d).", size, initialPosition)
-	}
+	streamLogger.Debugf(nil, "writeShadowFooter: Wrote (%d) bytes for shadow footer.", size)
 
 	// Keep us honest.
 	if size != ShadowFooterSize {
