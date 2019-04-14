@@ -1,6 +1,7 @@
 package timetogo
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -100,6 +101,7 @@ type StreamFooter interface {
 
 type StreamReader struct {
 	rs io.ReadSeeker
+	ss *StreamStructure
 }
 
 func NewStreamReader(rs io.ReadSeeker) *StreamReader {
@@ -108,7 +110,85 @@ func NewStreamReader(rs io.ReadSeeker) *StreamReader {
 	}
 }
 
-// TODO(dustin): !! Add a method to check the checksum.
+func (sr *StreamReader) SetStructureLogging(flag bool) {
+	if flag == true {
+		sr.ss = NewStreamStructure()
+	} else {
+		sr.ss = nil
+	}
+}
+
+func (sr *StreamReader) Structure() *StreamStructure {
+	if sr.ss == nil {
+		log.Panicf("not collecting structure info")
+	}
+
+	return sr.ss
+}
+
+// pushStreamMilestone records a milestone pertaining to the stream.
+func (sr *StreamReader) pushStreamMilestone(position int64, milestoneType MilestoneType, comment string) (err error) {
+	defer func() {
+		if state := recover(); state != nil {
+			err = log.Wrap(state.(error))
+		}
+	}()
+
+	if sr.ss != nil {
+		if position == -1 {
+			var err error
+			position, err = sr.rs.Seek(0, os.SEEK_CUR)
+			log.PanicIf(err)
+		}
+
+		sr.ss.Push(position, milestoneType, StStream, "", comment)
+	}
+
+	return nil
+}
+
+// pushSeriesMilestone records a milestone of a constituent series. The UUID is
+// optional as it will not be known until partway through the process.
+func (sr *StreamReader) pushSeriesMilestone(position int64, milestoneType MilestoneType, seriesUuid, comment string) (err error) {
+	defer func() {
+		if state := recover(); state != nil {
+			err = log.Wrap(state.(error))
+		}
+	}()
+
+	if sr.ss != nil {
+		if position == -1 {
+			var err error
+			position, err = sr.rs.Seek(0, os.SEEK_CUR)
+			log.PanicIf(err)
+		}
+
+		sr.ss.Push(position, milestoneType, StSeries, seriesUuid, comment)
+	}
+
+	return nil
+}
+
+// pushStreamMilestone records a milestone pertaining to the stream.
+func (sr *StreamReader) pushMiscMilestone(position int64, milestoneType MilestoneType, comment string) (err error) {
+	defer func() {
+		if state := recover(); state != nil {
+			err = log.Wrap(state.(error))
+		}
+	}()
+
+	if sr.ss != nil {
+		if position == -1 {
+			var err error
+			position, err = sr.rs.Seek(0, os.SEEK_CUR)
+			log.PanicIf(err)
+		}
+
+		sr.ss.Push(position, milestoneType, StMisc, "", comment)
+	}
+
+	return nil
+}
 
 // readOneFooter reads backwards from the current position (which should be the
 // NUL boundary marker). It will first read the shadow footer and then the raw
@@ -123,6 +203,9 @@ func (sr *StreamReader) readOneFooter() (footerVersion uint16, footerType Footer
 	// TODO(dustin): !! Add test.
 
 	// We should always be sitting on a NUL.
+
+	err = sr.pushMiscMilestone(-1, MtBoundaryMarker, "")
+	log.PanicIf(err)
 
 	boundaryMarker := make([]byte, 1)
 
@@ -143,6 +226,9 @@ func (sr *StreamReader) readOneFooter() (footerVersion uint16, footerType Footer
 	shadowPosition, err := sr.rs.Seek(-int64(shadowFooterSize)-1, os.SEEK_CUR)
 	log.PanicIf(err)
 
+	err = sr.pushMiscMilestone(shadowPosition, MtShadowFooterHeadByte, "")
+	log.PanicIf(err)
+
 	err = binary.Read(sr.rs, binary.LittleEndian, &footerVersion)
 	log.PanicIf(err)
 
@@ -156,17 +242,21 @@ func (sr *StreamReader) readOneFooter() (footerVersion uint16, footerType Footer
 	// Read the encoded footer.
 
 	absoluteFooterOffset := shadowPosition - int64(footerLength)
-	footerPosition, err := sr.rs.Seek(absoluteFooterOffset, os.SEEK_SET)
+
+	_, err = sr.rs.Seek(absoluteFooterOffset, os.SEEK_SET)
 	log.PanicIf(err)
 
-	streamLogger.Debugf(nil, "Footer: VERSION=(%d) TYPE=(%d) LENGTH=(%d) POSITION=(%d)", footerVersion, footerType, footerLength, footerPosition)
+	streamLogger.Debugf(nil, "Footer: VERSION=(%d) TYPE=(%d) LENGTH=(%d) POSITION=(%d)", footerVersion, footerType, footerLength, absoluteFooterOffset)
+
+	err = sr.pushMiscMilestone(absoluteFooterOffset, MtFooterHeadByte, "")
+	log.PanicIf(err)
 
 	footerBytes = make([]byte, footerLength)
 
 	_, err = io.ReadFull(sr.rs, footerBytes)
 	log.PanicIf(err)
 
-	streamLogger.Debugf(nil, "Reading version (%d) footer of length (%d) at position (%d).", footerVersion, footerLength, footerPosition)
+	streamLogger.Debugf(nil, "Reading version (%d) footer of length (%d) at position (%d).", footerVersion, footerLength, absoluteFooterOffset)
 
 	return footerVersion, footerType, footerBytes, absoluteFooterOffset, nil
 }
@@ -181,7 +271,13 @@ func (sr *StreamReader) readSeriesFooter() (sf SeriesFooter, dataOffset int64, n
 		}
 	}()
 
+	err = sr.pushSeriesMilestone(-1, MtBoundaryMarker, "", "")
+	log.PanicIf(err)
+
 	seriesFooterVersion, footerType, footerBytes, footerOffset, err := sr.readOneFooter()
+	log.PanicIf(err)
+
+	err = sr.pushSeriesMilestone(footerOffset, MtSeriesFooterHeadByte, "", "")
 	log.PanicIf(err)
 
 	if footerType != FtSeriesFooter {
@@ -195,6 +291,9 @@ func (sr *StreamReader) readSeriesFooter() (sf SeriesFooter, dataOffset int64, n
 	default:
 		log.Panicf("series footer version not valid (%d)", seriesFooterVersion)
 	}
+
+	err = sr.pushSeriesMilestone(footerOffset, MtSeriesFooterDecoded, sf.Uuid(), "")
+	log.PanicIf(err)
 
 	dataOffset = footerOffset - int64(sf.BytesLength())
 	nextBoundaryOffset = dataOffset - 1
@@ -217,7 +316,13 @@ func (sr *StreamReader) readStreamFooter() (sf StreamFooter, nextBoundaryOffset 
 		}
 	}()
 
+	err = sr.pushStreamMilestone(-1, MtBoundaryMarker, "")
+	log.PanicIf(err)
+
 	streamFooterVersion, footerType, footerBytes, footerOffset, err := sr.readOneFooter()
+	log.PanicIf(err)
+
+	err = sr.pushStreamMilestone(footerOffset, MtStreamFooterHeadByte, "")
 	log.PanicIf(err)
 
 	if footerType != FtStreamFooter {
@@ -234,6 +339,9 @@ func (sr *StreamReader) readStreamFooter() (sf StreamFooter, nextBoundaryOffset 
 		panic(nil)
 	}
 
+	err = sr.pushStreamMilestone(footerOffset, MtStreamFooterDecoded, fmt.Sprintf("Stream: %s", sf))
+	log.PanicIf(err)
+
 	nextBoundaryOffset = footerOffset - 1
 
 	if nextBoundaryOffset >= 0 {
@@ -243,21 +351,6 @@ func (sr *StreamReader) readStreamFooter() (sf StreamFooter, nextBoundaryOffset 
 
 	totalFooterSize = len(footerBytes) + ShadowFooterSize
 	return sf, nextBoundaryOffset, totalFooterSize, nil
-}
-
-func (sr *StreamReader) ReadSeriesInfoWithIndexedInfo(sisi StreamIndexedSequenceInfo) (seriesFooter SeriesFooter, dataOffset int64, seriesSize int, err error) {
-	defer func() {
-		if state := recover(); state != nil {
-			err = log.Wrap(state.(error))
-		}
-	}()
-
-	// TODO(dustin): !! Add unit-test.
-
-	seriesFooter, dataOffset, seriesSize, err = sr.ReadSeriesInfoWithBoundaryPosition(sisi.AbsolutePosition())
-	log.PanicIf(err)
-
-	return seriesFooter, dataOffset, seriesSize, nil
 }
 
 func (sr *StreamReader) ReadSeriesInfoWithBoundaryPosition(position int64) (seriesFooter SeriesFooter, dataOffset int64, seriesSize int, err error) {
@@ -275,7 +368,25 @@ func (sr *StreamReader) ReadSeriesInfoWithBoundaryPosition(position int64) (seri
 	seriesFooter, dataOffset, _, footerSize, err := sr.readSeriesFooter()
 	log.PanicIf(err)
 
+	err = sr.pushSeriesMilestone(dataOffset, MtSeriesDataHeadByte, seriesFooter.Uuid(), "")
+	log.PanicIf(err)
+
 	seriesSize = footerSize + int(seriesFooter.BytesLength())
+	return seriesFooter, dataOffset, seriesSize, nil
+}
+
+func (sr *StreamReader) ReadSeriesInfoWithIndexedInfo(sisi StreamIndexedSequenceInfo) (seriesFooter SeriesFooter, dataOffset int64, seriesSize int, err error) {
+	defer func() {
+		if state := recover(); state != nil {
+			err = log.Wrap(state.(error))
+		}
+	}()
+
+	// TODO(dustin): !! Add unit-test.
+
+	seriesFooter, dataOffset, seriesSize, err = sr.ReadSeriesInfoWithBoundaryPosition(sisi.AbsolutePosition())
+	log.PanicIf(err)
+
 	return seriesFooter, dataOffset, seriesSize, nil
 }
 
@@ -300,9 +411,14 @@ func (sr *StreamReader) ReadSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo
 
 	fnv1a := fnv.New32a()
 
-	teeWriter := io.MultiWriter(dataWriter, fnv1a)
+	var finalWriter io.Writer
+	if dataWriter != nil {
+		finalWriter = io.MultiWriter(dataWriter, fnv1a)
+	} else {
+		finalWriter = fnv1a
+	}
 
-	_, err = io.CopyN(teeWriter, sr.rs, int64(seriesFooter.BytesLength()))
+	_, err = io.CopyN(finalWriter, sr.rs, int64(seriesFooter.BytesLength()))
 	log.PanicIf(err)
 
 	fnvChecksum := fnv1a.Sum32()
