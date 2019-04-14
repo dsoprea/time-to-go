@@ -87,6 +87,11 @@ func (ss *StreamStructure) Dump() {
 
 	// sort.Sort(ss)
 
+	fmt.Printf("================\n")
+	fmt.Printf("Stream Structure\n")
+	fmt.Printf("================\n")
+	fmt.Printf("\n")
+
 	var lastOffset int64
 	for i, milestone := range ss.milestones {
 		offsetPhrase := strings.Repeat(" ", 11)
@@ -98,6 +103,8 @@ func (ss *StreamStructure) Dump() {
 
 		lastOffset = milestone.Offset
 	}
+
+	fmt.Printf("\n")
 }
 
 func (ss *StreamStructure) Push(offset int64, milestoneType MilestoneType, scopeType ScopeType, seriesUuid string, comment string) {

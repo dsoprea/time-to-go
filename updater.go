@@ -143,14 +143,10 @@ func (updater *Updater) addExistingSeries(seriesFooter SeriesFooter, cps current
 	// If this series and any that existed before it (if any) have, so far,
 	// been identical then no copy is necessary.
 	if currentSequencePosition == existingSeriesPosition && *anyChanges == false {
-		err := updater.sb.AddSeriesNoWrite(existingTotalSeriesSize, seriesFooter)
+		err := updater.sb.AddSeriesNoWrite(existingFilePosition, existingTotalSeriesSize, seriesFooter)
 		log.PanicIf(err)
 	} else {
 		*anyChanges = true
-
-		// TODO(dustin): !! This needs to direct copy from where it *currently is* in theh file to where it needs to be moved to. *But*, we're gonna have to manually seek back and forther and copy it ourselves.
-		// TODO(dustin): !! Once we start doing this, make sure to restore our position afterward.
-		existingFilePosition = existingFilePosition
 
 		// We use the *existing* footer because the data is supposed to be
 		// identical and, so far, looks identical, and we want to be very

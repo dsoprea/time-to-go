@@ -134,8 +134,13 @@ func (sw *StreamWriter) writeStreamFooter(sequences []StreamIndexedSequenceInfo)
 	data := sw.b.FinishedBytes()
 	streamLogger1.Debugf(nil, "Writing (%d) bytes for stream footer.", len(data))
 
-	_, err = sw.w.Write(data)
+	err = sw.pushStreamMilestone(MtStreamFooterHeadByte, fmt.Sprintf("COUNT=(%d)", len(sequences)))
 	log.PanicIf(err)
+
+	n, err := sw.w.Write(data)
+	log.PanicIf(err)
+
+	sw.bumpPosition(int64(n))
 
 	footerVersion := uint16(1)
 	shadowSize, err := sw.writeShadowFooter(footerVersion, FtStreamFooter, uint16(len(data)))

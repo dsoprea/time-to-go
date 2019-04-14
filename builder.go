@@ -20,6 +20,13 @@ type StreamBuilder struct {
 }
 
 func NewStreamBuilder(w io.Writer) *StreamBuilder {
+	// TODO(dustin): !! Start returning an error value.
+
+	// We need this to make sure that our writes are always performd in the
+	// correct place. This enables us to copy existing data from later positions
+	// in the file.
+	// TODO(dustin): !! Move the writing to StreamWriter so we can both keep track of the file position, so we can keep track of the structure.
+
 	sw := NewStreamWriter(w)
 	series := make([]SeriesFooter, 0)
 	offsets := make([]int64, 0)
@@ -30,6 +37,14 @@ func NewStreamBuilder(w io.Writer) *StreamBuilder {
 		series:  series,
 		offsets: offsets,
 	}
+}
+
+func (sb *StreamBuilder) SetStructureLogging(flag bool) {
+	sb.sw.SetStructureLogging(flag)
+}
+
+func (sb *StreamBuilder) Structure() *StreamStructure {
+	return sb.sw.Structure()
 }
 
 // AddSeries adds a single series and associated metadata to the stream. The
@@ -53,6 +68,11 @@ func (sb *StreamBuilder) AddSeries(encodedSeriesDataReader io.Reader, sf SeriesF
 	copiedCount, err := io.CopyBuffer(teeWriter, encodedSeriesDataReader, sb.copyBuffer)
 	log.PanicIf(err)
 
+	err = sb.sw.pushSeriesMilestone(-1, MtSeriesDataHeadByte, sf.Uuid(), "")
+	log.PanicIf(err)
+
+	sb.sw.bumpPosition(int64(copiedCount))
+
 	fnvChecksum := fnv1a.Sum32()
 
 	// Make sure we copied as much as we expected to.
@@ -62,7 +82,6 @@ func (sb *StreamBuilder) AddSeries(encodedSeriesDataReader io.Reader, sf SeriesF
 	}
 
 	footerSize, err := sb.sw.writeSeriesFooter1(sf, fnvChecksum)
-
 	log.PanicIf(err)
 
 	totalSeriesSize := int(copiedCount) + footerSize
@@ -74,14 +93,29 @@ func (sb *StreamBuilder) AddSeries(encodedSeriesDataReader io.Reader, sf SeriesF
 	return nil
 }
 
+// NextOffset returns the position that the head bytes
+func (sb *StreamBuilder) NextOffset() int64 {
+	return sb.nextOffset
+}
+
 // AddSeriesNoWrite logs a single series and associated metadata but doesn't
 // actually write. It will be written through other means.
-func (sb *StreamBuilder) AddSeriesNoWrite(totalSeriesSize int, sf SeriesFooter) (err error) {
+func (sb *StreamBuilder) AddSeriesNoWrite(footerDataPosition int64, totalSeriesSize int, sf SeriesFooter) (err error) {
 	defer func() {
 		if state := recover(); state != nil {
 			err = log.Wrap(state.(error))
 		}
 	}()
+
+	err = sb.sw.pushSeriesMilestone(footerDataPosition, MtSeriesDataHeadByte, sf.Uuid(), "")
+	log.PanicIf(err)
+
+	footerPosition := footerDataPosition + int64(sf.BytesLength())
+
+	err = sb.sw.pushSeriesMilestone(footerPosition, MtSeriesFooterHeadByte, sf.Uuid(), "(Retained during update)")
+	log.PanicIf(err)
+
+	sb.sw.bumpPosition(int64(totalSeriesSize))
 
 	sb.nextOffset += int64(totalSeriesSize)
 	sb.offsets = append(sb.offsets, sb.nextOffset-1)

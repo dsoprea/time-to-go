@@ -166,8 +166,13 @@ func (sw *StreamWriter) writeSeriesFooter1(sf SeriesFooter, fnvChecksum uint32) 
 	data := sw.b.FinishedBytes()
 	seriesProtocol1Logger.Debugf(nil, "Writing (%d) bytes for series footer.", len(data))
 
-	_, err = sw.w.Write(data)
+	n, err := sw.w.Write(data)
 	log.PanicIf(err)
+
+	err = sw.pushSeriesMilestone(-1, MtSeriesFooterHeadByte, sf.Uuid(), "Added during update")
+	log.PanicIf(err)
+
+	sw.bumpPosition(int64(n))
 
 	footerVersion := uint16(1)
 	shadowSize, err := sw.writeShadowFooter(footerVersion, FtSeriesFooter, uint16(len(data)))
