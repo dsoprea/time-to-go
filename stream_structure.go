@@ -50,6 +50,10 @@ type StreamStructureOffsetInfo struct {
 	Comment string
 }
 
+func (ssoi StreamStructureOffsetInfo) String() string {
+	return fmt.Sprintf("StreamStructureOffsetInfo<OFFSET=(%d) MILESTONE=[%s] SCOPE=(%d) UUID=[%s] COMMENT=[%s]>", ssoi.Offset, ssoi.MilestoneType, ssoi.ScopeType, ssoi.SeriesUuid, ssoi.Comment)
+}
+
 type StreamStructure struct {
 	milestones []StreamStructureOffsetInfo
 }
@@ -62,30 +66,18 @@ func NewStreamStructure() *StreamStructure {
 	}
 }
 
-// TODO(dustin): !! These jumble the data, apparently, and it looks better just looking at the entries in insert-order.
-//
-// // Len is the number of elements in the collection.
-// func (ss *StreamStructure) Len() int {
-// 	return len(ss.milestones)
-// }
-
-// // Less reports whether the element with
-// // index i should sort before the element with index j.
-// func (ss *StreamStructure) Less(i, j int) bool {
-// 	return ss.milestones[i].Offset < ss.milestones[j].Offset || ss.milestones[i].Offset == ss.milestones[j].Offset && ss.milestones[i].MilestoneType < ss.milestones[j].MilestoneType
-// }
-
-// // Swap swaps the elements with indexes i and j.
-// func (ss *StreamStructure) Swap(i, j int) {
-// 	ss.milestones[i].Offset, ss.milestones[j].Offset = ss.milestones[j].Offset, ss.milestones[i].Offset
-// }
+func (ss *StreamStructure) String() string {
+	return fmt.Sprintf("StreamStructure<COUNT=(%d)>", len(ss.milestones))
+}
 
 func (ss *StreamStructure) Dump() {
 	if ss.milestones == nil {
 		log.Panicf("milestones not collected")
 	}
 
-	// sort.Sort(ss)
+	if len(ss.milestones) == 0 {
+		log.Panicf("no milestones recorded")
+	}
 
 	fmt.Printf("================\n")
 	fmt.Printf("Stream Structure\n")
@@ -219,4 +211,21 @@ func (ss *StreamStructure) AllSeriesMilestones() (milestoneIndex map[string][]St
 	}
 
 	return milestoneIndex
+}
+
+func (ss *StreamStructure) MilestonesWithFilter(milestoneType string, scopeType int) []StreamStructureOffsetInfo {
+	milestones := make([]StreamStructureOffsetInfo, 0)
+	for _, ssoi := range ss.milestones {
+		if scopeType != -1 && ssoi.ScopeType != ScopeType(scopeType) {
+			continue
+		}
+
+		if milestoneType != "" && ssoi.MilestoneType != MilestoneType(milestoneType) {
+			continue
+		}
+
+		milestones = append(milestones, ssoi)
+	}
+
+	return milestones
 }
