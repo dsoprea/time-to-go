@@ -14,14 +14,6 @@ import (
 )
 
 func TestUpdater_AddSeries_NoChange(t *testing.T) {
-	defer func() {
-		if state := recover(); state != nil {
-			err := log.Wrap(state.(error))
-			log.PrintError(err)
-			t.Fatalf("Test failed.")
-		}
-	}()
-
 	raw, series, _ := WriteTestMultiseriesStream()
 
 	rws := rifs.NewSeekableBufferWithBytes(raw)
@@ -85,14 +77,6 @@ func (sdtg *SeriesDataTestGenerator) GetSerializeTimeSeriesData(seriesFooter Ser
 }
 
 func TestUpdater_AddSeries_AddNew(t *testing.T) {
-	defer func() {
-		if state := recover(); state != nil {
-			err := log.Wrap(state.(error))
-			log.PrintError(err)
-			t.Fatalf("Test failed.")
-		}
-	}()
-
 	raw, series, _ := WriteTestMultiseriesStream()
 
 	// Update.
@@ -237,14 +221,6 @@ func TestUpdater_AddSeries_AddNew(t *testing.T) {
 // `Updater` to copy the data from the back of the stream to the front of the
 // stream.
 func TestUpdater_AddSeries__CopyForward(t *testing.T) {
-	defer func() {
-		if state := recover(); state != nil {
-			err := log.Wrap(state.(error))
-			log.PrintError(err)
-			t.Fatalf("Test failed.")
-		}
-	}()
-
 	raw, series, _ := WriteTestMultiseriesStream()
 
 	// Update.
@@ -302,4 +278,142 @@ func TestUpdater_AddSeries__CopyForward(t *testing.T) {
 	}
 }
 
-// TODO(dustin): !! Add a test where there *are* changes.
+func ExampleUpdater_AddSeries() {
+	b := rifs.NewSeekableBuffer()
+
+	// Stage stream.
+
+	sb := NewStreamBuilder(b)
+	sb.SetStructureLogging(true)
+
+	series := AddTestSeries(sb)
+
+	_, err := sb.Finish()
+	log.PanicIf(err)
+
+	fmt.Printf("\n")
+	fmt.Printf("Original:\n")
+	fmt.Printf("\n")
+
+	sb.Structure().Dump()
+
+	raw := b.Bytes()
+
+	// Update the stream with a new series.
+
+	sourceSha13 := []byte{
+		77,
+		88,
+		99,
+	}
+
+	now := time.Now()
+
+	series3 := NewSeriesFooter1(
+		now.Add(time.Second*20),
+		now.Add(time.Second*30),
+		uint64(len(TestTimeSeriesData2)),
+		33,
+		"some_filename3",
+		sourceSha13)
+
+	// Force a specific UUID so we know the exact output in support of the
+	// testable examples.
+	series3.uuid = "9a0e2d13-d14f-4a57-b43c-24bd3de6581e"
+
+	dataReader3 := bytes.NewBuffer(TestTimeSeriesData2)
+	drc := ioutil.NopCloser(dataReader3)
+
+	sdtg := &SeriesDataTestGenerator{
+		data: map[string]io.ReadCloser{
+			series3.Uuid(): drc,
+		},
+	}
+
+	rws := rifs.NewSeekableBufferWithBytes(raw)
+	updater := NewUpdater(rws, sdtg)
+
+	updater.AddSeries(series[0])
+	updater.AddSeries(series[1])
+	updater.AddSeries(series3)
+
+	_, _, err = updater.Write()
+	log.PanicIf(err)
+
+	finalRaw := rws.Bytes()
+
+	// Read the new stream.
+
+	r := bytes.NewReader(finalRaw)
+
+	sr := NewStreamReader(r)
+	sr.SetStructureLogging(true)
+
+	it, err := NewIterator(sr)
+	log.PanicIf(err)
+
+	for {
+		_, _, err := it.Iterate(nil)
+		if err == io.EOF {
+			break
+		}
+	}
+
+	fmt.Printf("Updated:\n")
+	fmt.Printf("\n")
+
+	sr.Structure().Dump()
+
+	// Output:
+	// Original:
+	//
+	// ================
+	// Stream Structure
+	// ================
+	//
+	// OFF 0        MT series_data_head_byte           SCOPE series   UUID d095abf5-126e-48a7-8974-885de92bd964      COMM
+	// OFF 21       MT series_footer_head_byte         SCOPE series   UUID d095abf5-126e-48a7-8974-885de92bd964      COMM
+	// OFF 173      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
+	// OFF 178      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	// OFF 179      MT series_data_head_byte           SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
+	// OFF 206      MT series_footer_head_byte         SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
+	// OFF 358      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
+	// OFF 363      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	// OFF 364      MT stream_footer_head_byte         SCOPE stream   UUID                                           COMM Stream: StreamFooter1<COUNT=(2)>
+	// OFF 628      MT shadow_footer_head_byte         SCOPE stream   UUID                                           COMM
+	// OFF 633      MT boundary_marker                 SCOPE stream   UUID                                           COMM
+	//
+	// Updated:
+	//
+	// ================
+	// Stream Structure
+	// ================
+	//
+	// OFF 938      MT boundary_marker                 SCOPE stream   UUID                                           COMM
+	//              MT boundary_marker                 SCOPE misc     UUID                                           COMM
+	// OFF 933      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
+	// OFF 549      MT footer_head_byte                SCOPE misc     UUID                                           COMM
+	//              MT stream_footer_head_byte         SCOPE stream   UUID                                           COMM
+	//              MT stream_footer_decoded           SCOPE stream   UUID                                           COMM Stream: StreamFooter1<COUNT=(3)>
+	// OFF 548      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	//              MT boundary_marker                 SCOPE misc     UUID                                           COMM
+	// OFF 543      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
+	// OFF 391      MT footer_head_byte                SCOPE misc     UUID                                           COMM
+	//              MT series_footer_head_byte         SCOPE series   UUID                                           COMM
+	//              MT series_footer_decoded           SCOPE series   UUID 9a0e2d13-d14f-4a57-b43c-24bd3de6581e      COMM
+	// OFF 364      MT series_data_head_byte           SCOPE series   UUID 9a0e2d13-d14f-4a57-b43c-24bd3de6581e      COMM
+	// OFF 363      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	//              MT boundary_marker                 SCOPE misc     UUID                                           COMM
+	// OFF 358      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
+	// OFF 206      MT footer_head_byte                SCOPE misc     UUID                                           COMM
+	//              MT series_footer_head_byte         SCOPE series   UUID                                           COMM
+	//              MT series_footer_decoded           SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
+	// OFF 179      MT series_data_head_byte           SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
+	// OFF 178      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	//              MT boundary_marker                 SCOPE misc     UUID                                           COMM
+	// OFF 173      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
+	// OFF 21       MT footer_head_byte                SCOPE misc     UUID                                           COMM
+	//              MT series_footer_head_byte         SCOPE series   UUID                                           COMM
+	//              MT series_footer_decoded           SCOPE series   UUID d095abf5-126e-48a7-8974-885de92bd964      COMM
+	// OFF 0        MT series_data_head_byte           SCOPE series   UUID d095abf5-126e-48a7-8974-885de92bd964      COMM
+}
