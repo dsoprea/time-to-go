@@ -125,7 +125,16 @@ func (ss *StreamStructure) Dump() {
 			offsetPhrase = fmt.Sprintf("OFF %-7d", milestone.Offset)
 		}
 
-		fmt.Printf("%s  MT %-30s  SCOPE %-7s  UUID %-40s  COMM %-s\n", offsetPhrase, milestone.MilestoneType, ScopeTypePhrases[milestone.ScopeType], milestone.SeriesUuid, milestone.Comment)
+		comment := milestone.Comment
+
+		// Don't print any trailing spaces. This sabotages are testable
+		// examples because our editor will trim the trailing whitespace
+		// and the expected output will no longer match the actual output.
+		if comment != "" {
+			comment = " " + comment
+		}
+
+		fmt.Printf("%s  MT %-30s  SCOPE %-7s  UUID %-40s  COMM%-s\n", offsetPhrase, milestone.MilestoneType, ScopeTypePhrases[milestone.ScopeType], milestone.SeriesUuid, comment)
 
 		lastOffset = milestone.Offset
 	}
