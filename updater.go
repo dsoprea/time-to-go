@@ -5,8 +5,14 @@ import (
 	"io"
 	"os"
 
+	"io/ioutil"
+
 	"github.com/dsoprea/go-logging"
 	"github.com/randomingenuity/go-utility/filesystem"
+)
+
+var (
+	updaterLogger = log.NewLogger("timetogo.updater")
 )
 
 type SerializeTimeSeriesDataGetter interface {
@@ -33,6 +39,8 @@ type Updater struct {
 	sr  *StreamReader
 	sb  *StreamBuilder
 
+	br *rifs.BouncebackReader
+
 	getter    SerializeTimeSeriesDataGetter
 	newSeries []SeriesFooter
 
@@ -51,6 +59,9 @@ type currentPersistedSeries struct {
 
 func NewUpdater(rws io.ReadWriteSeeker, getter SerializeTimeSeriesDataGetter) *Updater {
 	sr := NewStreamReader(rws)
+
+	br, err := rifs.NewBouncebackReader(rws)
+	log.PanicIf(err)
 
 	bw, err := rifs.NewBouncebackWriter(rws)
 	log.PanicIf(err)
@@ -98,6 +109,7 @@ func NewUpdater(rws io.ReadWriteSeeker, getter SerializeTimeSeriesDataGetter) *U
 		it:               it,
 		sr:               sr,
 		sb:               sb,
+		br:               br,
 		getter:           getter,
 		knownSeriesIndex: knownSeriesIndex,
 		newSeries:        newSeries,
@@ -133,6 +145,8 @@ func (updater *Updater) appendNewSeries(seriesFooter SeriesFooter) (err error) {
 		}
 	}()
 
+	// TODO(dustin): !! Add test.
+
 	if updater.getter == nil {
 		log.Panicf("data needed for series [%s] but no getter was provided", seriesFooter.Uuid())
 	}
@@ -141,6 +155,35 @@ func (updater *Updater) appendNewSeries(seriesFooter SeriesFooter) (err error) {
 	log.PanicIf(err)
 
 	defer rc.Close()
+
+	updaterLogger.Debugf(nil, "appendNewSeries: Adding new series [%s].", seriesFooter.Uuid())
+
+	err = updater.sb.AddSeries(rc, seriesFooter)
+	log.PanicIf(err)
+
+	return nil
+}
+
+// copyForwardSeries adds the series but copies the data from a later position
+// in the file.
+func (updater *Updater) copyForwardSeries(existingFilePosition int64, seriesFooter SeriesFooter) (err error) {
+	defer func() {
+		if state := recover(); state != nil {
+			err = log.Wrap(state.(error))
+		}
+	}()
+
+	// TODO(dustin): !! Add test.
+
+	_, err = updater.br.Seek(existingFilePosition, os.SEEK_SET)
+	log.PanicIf(err)
+
+	dataSize := int64(seriesFooter.BytesLength())
+
+	lr := io.LimitReader(updater.br, dataSize)
+	rc := ioutil.NopCloser(lr)
+
+	updaterLogger.Debugf(nil, "copyForwardSeries: Copying-forward existing series [%s] from position (%d).", seriesFooter.Uuid(), existingFilePosition)
 
 	err = updater.sb.AddSeries(rc, seriesFooter)
 	log.PanicIf(err)
@@ -157,6 +200,8 @@ func (updater *Updater) addExistingSeries(seriesFooter SeriesFooter, cps current
 			err = log.Wrap(state.(error))
 		}
 	}()
+
+	// TODO(dustin): !! Add test.
 
 	// This series was there to begin with. Determine whether it's in
 	// exactly the same place or if there have been changes before this
@@ -176,15 +221,34 @@ func (updater *Updater) addExistingSeries(seriesFooter SeriesFooter, cps current
 	// If this series and any that existed before it (if any) have, so far,
 	// been identical then no copy is necessary.
 	if currentSequencePosition == existingSeriesPosition && *anyChanges == false {
+		// The series is already in the stream in the same place (and unchanged,
+		// or this function would've never been called).
+
+		updaterLogger.Debugf(nil, "addExistingSeries: Skipping over existing series [%s].", seriesFooter.Uuid())
+
 		err := updater.sb.AddSeriesNoWrite(existingFilePosition, existingTotalSeriesSize, seriesFooter)
 		log.PanicIf(err)
-	} else {
+	} else if int64(existingSeriesPosition) > updater.sb.NextOffset() {
+		// The series is already in the stream, but past the current position.
+
 		*anyChanges = true
+
+		updaterLogger.Debugf(nil, "addExistingSeries: Copying-forward series [%s].", seriesFooter.Uuid())
+
+		err := updater.copyForwardSeries(existingFilePosition, existingSeriesFooter)
+		log.PanicIf(err)
+	} else {
+		// The series is either not already in the stream or changed from the
+		// one that's present.
+
+		*anyChanges = true
+
+		updaterLogger.Debugf(nil, "addExistingSeries: We have previously encountered changes. Adding series [%s] as new.", seriesFooter.Uuid())
 
 		// We use the *existing* footer because the data is supposed to be
 		// identical and, so far, looks identical, and we want to be very
 		// sure that the caller doesn't introduce changes.
-		err = updater.appendNewSeries(existingSeriesFooter)
+		err := updater.appendNewSeries(existingSeriesFooter)
 		log.PanicIf(err)
 	}
 

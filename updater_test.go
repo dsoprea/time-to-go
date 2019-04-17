@@ -25,8 +25,8 @@ func TestUpdater_AddSeries_NoChange(t *testing.T) {
 	raw, series, _ := WriteTestMultiseriesStream()
 
 	rws := rifs.NewSeekableBufferWithBytes(raw)
-
 	updater := NewUpdater(rws, nil)
+
 	updater.AddSeries(series[0])
 	updater.AddSeries(series[1])
 
@@ -94,6 +94,8 @@ func TestUpdater_AddSeries_AddNew(t *testing.T) {
 	}()
 
 	raw, series, _ := WriteTestMultiseriesStream()
+
+	// Update.
 
 	sourceSha13 := []byte{
 		77,
@@ -173,11 +175,10 @@ func TestUpdater_AddSeries_AddNew(t *testing.T) {
 		log.Panicf("one or more of the reported boundaries was not NUL")
 	}
 
+	// Read back.
+
 	r := bytes.NewReader(finalRaw)
 	sr := NewStreamReader(r)
-
-	// TODO(dustin): !! Debugging.
-	sr.SetStructureLogging(true)
 
 	it, err := NewIterator(sr)
 	log.PanicIf(err)
@@ -228,6 +229,75 @@ func TestUpdater_AddSeries_AddNew(t *testing.T) {
 	dataBytes = b.Bytes()
 
 	if bytes.Compare(dataBytes, TestTimeSeriesData) != 0 {
+		t.Fatalf("Series 1 data not correct:\nACTUAL: %v\nEXPECTED: %v", dataBytes, TestTimeSeriesData)
+	}
+}
+
+// TestUpdater_AddSeries__CopyForward drops the first series and induces
+// `Updater` to copy the data from the back of the stream to the front of the
+// stream.
+func TestUpdater_AddSeries__CopyForward(t *testing.T) {
+	defer func() {
+		if state := recover(); state != nil {
+			err := log.Wrap(state.(error))
+			log.PrintError(err)
+			t.Fatalf("Test failed.")
+		}
+	}()
+
+	raw, series, _ := WriteTestMultiseriesStream()
+
+	// Update.
+
+	rws := rifs.NewSeekableBufferWithBytes(raw)
+	updater := NewUpdater(rws, nil)
+
+	// We add the second one instead of the first so we can guarantee a non-
+	// trivial operation.
+	updater.AddSeries(series[1])
+
+	totalSize, stats, err := updater.Write()
+	log.PanicIf(err)
+
+	expectedStats := UpdateStats{
+		Skips: 1,
+	}
+
+	if stats != expectedStats {
+		t.Fatalf("Stats not correct: %s", stats)
+	} else if totalSize != 343 {
+		t.Fatalf("Total stream size not correct: (%d)", totalSize)
+	}
+
+	finalRaw := rws.Bytes()
+
+	// Truncate it to the correct size.
+	finalRaw = finalRaw[:totalSize]
+
+	// Read back.
+
+	r := bytes.NewReader(finalRaw)
+	sr := NewStreamReader(r)
+
+	it, err := NewIterator(sr)
+	log.PanicIf(err)
+
+	if it.Count() != 1 {
+		t.Fatalf("The stream doesn't have exactly one series: (%d)", it.Count())
+	}
+
+	b := new(bytes.Buffer)
+
+	seriesFooter1, _, err := it.Iterate(b)
+	log.PanicIf(err)
+
+	if seriesFooter1.Uuid() != series[1].Uuid() {
+		t.Fatalf("First encountered series is not correct.")
+	}
+
+	dataBytes := b.Bytes()
+
+	if bytes.Compare(dataBytes, TestTimeSeriesData2) != 0 {
 		t.Fatalf("Series 1 data not correct:\nACTUAL: %v\nEXPECTED: %v", dataBytes, TestTimeSeriesData)
 	}
 }
