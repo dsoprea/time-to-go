@@ -86,7 +86,7 @@ func (sb *StreamBuilder) AddSeries(encodedSeriesDataReader io.Reader, sf SeriesF
 	// Make sure we copied as much as we expected to.
 	expectedCount := sf.BytesLength()
 	if uint64(copiedCount) != expectedCount {
-		log.Panicf("series data size (%d) does not equal size (%d) in series footer", copiedCount, expectedCount)
+		log.Panicf("copied data size (%d) does not equal expected size (%d)", copiedCount, expectedCount)
 	}
 
 	footerSize, err := sb.sw.writeSeriesFooter1(sf, fnvChecksum)

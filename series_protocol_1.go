@@ -169,7 +169,7 @@ func (sw *StreamWriter) writeSeriesFooter1(sf SeriesFooter, fnvChecksum uint32) 
 	n, err := sw.w.Write(data)
 	log.PanicIf(err)
 
-	err = sw.pushSeriesMilestone(-1, MtSeriesFooterHeadByte, sf.Uuid(), "Added during update")
+	err = sw.pushSeriesMilestone(-1, MtSeriesFooterHeadByte, sf.Uuid(), "")
 	log.PanicIf(err)
 
 	sw.bumpPosition(int64(n))
