@@ -133,6 +133,10 @@ func (updater *Updater) appendNewSeries(seriesFooter SeriesFooter) (err error) {
 		}
 	}()
 
+	if updater.getter == nil {
+		log.Panicf("data needed for series [%s] but no getter was provided", seriesFooter.Uuid())
+	}
+
 	rc, err := updater.getter.GetSerializeTimeSeriesData(seriesFooter)
 	log.PanicIf(err)
 
