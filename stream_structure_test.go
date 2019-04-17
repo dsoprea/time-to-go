@@ -13,6 +13,12 @@ import (
 //
 // This table is printed in forward order when writing a stream and reverse
 // order when reading a stream.
+//
+// Columns: 1) absolute offset in the stream, 2) milestone type (describes the
+// type of data), 3) scope type (describes whether it's related to streams or
+// series, or 'misc' if not enough is known yet during a parse), 4) UUID (only
+// for series; usually present for at least all 'series_data_head_byte'
+// milestone types), 5) milestone comment (not stored in original data).
 func ExampleStreamStructure_Dump() {
     b := rifs.NewSeekableBuffer()
     sb := NewStreamBuilder(b)
