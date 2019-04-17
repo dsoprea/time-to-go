@@ -1,9 +1,12 @@
 package timetogo
 
 import (
+	"fmt"
 	"io"
+	"os"
 
 	"github.com/dsoprea/go-logging"
+	"github.com/randomingenuity/go-utility/filesystem"
 )
 
 type SerializeTimeSeriesDataGetter interface {
@@ -28,7 +31,6 @@ type Updater struct {
 	rws io.ReadWriteSeeker
 	it  *Iterator
 	sr  *StreamReader
-	sw  *StreamWriter
 	sb  *StreamBuilder
 
 	getter    SerializeTimeSeriesDataGetter
@@ -49,11 +51,17 @@ type currentPersistedSeries struct {
 
 func NewUpdater(rws io.ReadWriteSeeker, getter SerializeTimeSeriesDataGetter) *Updater {
 	sr := NewStreamReader(rws)
-	sw := NewStreamWriter(rws)
-	sb := NewStreamBuilder(rws)
+
+	bw, err := rifs.NewBouncebackWriter(rws)
+	log.PanicIf(err)
+
+	sb := NewStreamBuilder(bw)
 
 	it, err := NewIterator(sr)
 	log.PanicIf(err)
+
+	// Read existing series data. This does N seeks through the stream, but is
+	// otherwise an efficient operation.
 
 	knownSeriesIndex := make(map[seriesIndexKey]currentPersistedSeries)
 
@@ -75,13 +83,20 @@ func NewUpdater(rws io.ReadWriteSeeker, getter SerializeTimeSeriesDataGetter) *U
 		knownSeriesIndex[sik] = cps
 	}
 
+	// Now that we've enumerated the series, go back to the front of the stream
+	// so that we're in a position to begin stepping forward.
+	//
+	// TODO(dustin): !! This might not be enough. We might still need to seek at the top of AddSeries().
+	//
+	_, err = bw.Seek(0, os.SEEK_SET)
+	log.PanicIf(err)
+
 	newSeries := make([]SeriesFooter, 0)
 
 	return &Updater{
 		rws:              rws,
 		it:               it,
 		sr:               sr,
-		sw:               sw,
 		sb:               sb,
 		getter:           getter,
 		knownSeriesIndex: knownSeriesIndex,
@@ -89,6 +104,16 @@ func NewUpdater(rws io.ReadWriteSeeker, getter SerializeTimeSeriesDataGetter) *U
 	}
 }
 
+func (updater *Updater) SetStructureLogging(flag bool) {
+	updater.sb.StreamWriter().SetStructureLogging(flag)
+}
+
+func (updater *Updater) Structure() *StreamStructure {
+	return updater.sb.StreamWriter().Structure()
+}
+
+// AddSeries queues a series to be added. It's not actually written until
+// Write() is called.
 func (updater *Updater) AddSeries(seriesFooter SeriesFooter) {
 	defer func() {
 		if state := recover(); state != nil {
@@ -100,7 +125,8 @@ func (updater *Updater) AddSeries(seriesFooter SeriesFooter) {
 	updater.newSeries = append(updater.newSeries, seriesFooter)
 }
 
-func (updater *Updater) addSeries(seriesFooter SeriesFooter) (err error) {
+// appendNewSeries writes the given series out to the stream.
+func (updater *Updater) appendNewSeries(seriesFooter SeriesFooter) (err error) {
 	defer func() {
 		if state := recover(); state != nil {
 			err = log.Wrap(state.(error))
@@ -118,6 +144,9 @@ func (updater *Updater) addSeries(seriesFooter SeriesFooter) (err error) {
 	return nil
 }
 
+// addExistingSeries either reuses or appends/overwrites an existing series
+// depending on whether it's unchanged and if the existing data has already been
+// overwritten.
 func (updater *Updater) addExistingSeries(seriesFooter SeriesFooter, cps currentPersistedSeries, currentSequencePosition int, anyChanges *bool) (err error) {
 	defer func() {
 		if state := recover(); state != nil {
@@ -151,7 +180,7 @@ func (updater *Updater) addExistingSeries(seriesFooter SeriesFooter, cps current
 		// We use the *existing* footer because the data is supposed to be
 		// identical and, so far, looks identical, and we want to be very
 		// sure that the caller doesn't introduce changes.
-		err = updater.addSeries(existingSeriesFooter)
+		err = updater.appendNewSeries(existingSeriesFooter)
 		log.PanicIf(err)
 	}
 
@@ -161,6 +190,10 @@ func (updater *Updater) addExistingSeries(seriesFooter SeriesFooter, cps current
 type UpdateStats struct {
 	Skips int
 	Adds  int
+}
+
+func (us UpdateStats) String() string {
+	return fmt.Sprintf("UpdateStats<SKIPS=(%d) ADDS=(%d)>", us.Skips, us.Adds)
 }
 
 func (updater *Updater) Write() (totalSize int, stats UpdateStats, err error) {
@@ -208,7 +241,7 @@ func (updater *Updater) Write() (totalSize int, stats UpdateStats, err error) {
 			continue
 		}
 
-		err := updater.addSeries(seriesFooter)
+		err := updater.appendNewSeries(seriesFooter)
 		log.PanicIf(err)
 
 		sequencePosition++
