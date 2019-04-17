@@ -32,7 +32,9 @@ func WriteTestStreamFooter1(sw *StreamWriter) ([]StreamIndexedSequenceInfo, int)
 		isis2,
 	}
 
-	size, err := sw.writeStreamFooter(series)
+	streamFooter := NewStreamFooter1FromStreamIndexedSequenceInfoSlice(series)
+
+	size, err := sw.writeStreamFooter(streamFooter)
 	log.PanicIf(err)
 
 	if size != 174 {

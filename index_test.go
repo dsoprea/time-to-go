@@ -9,7 +9,7 @@ import (
 )
 
 func TestIndex_GetWithTimestamp_Hit(t *testing.T) {
-	raw, footers := WriteTestMultiseriesStream()
+	raw, footers, _ := WriteTestMultiseriesStream()
 
 	r := bytes.NewReader(raw)
 
@@ -29,7 +29,7 @@ func TestIndex_GetWithTimestamp_Hit(t *testing.T) {
 }
 
 func TestIndex_GetWithTimestamp_Miss_TooEarly(t *testing.T) {
-	raw, _ := WriteTestMultiseriesStream()
+	raw, _, _ := WriteTestMultiseriesStream()
 
 	r := bytes.NewReader(raw)
 
@@ -47,7 +47,7 @@ func TestIndex_GetWithTimestamp_Miss_TooEarly(t *testing.T) {
 }
 
 func TestIndex_GetWithTimestamp_Hit_Intersection(t *testing.T) {
-	raw, footers := WriteTestMultiseriesStream()
+	raw, footers, _ := WriteTestMultiseriesStream()
 
 	r := bytes.NewReader(raw)
 
@@ -69,7 +69,7 @@ func TestIndex_GetWithTimestamp_Hit_Intersection(t *testing.T) {
 }
 
 func TestIndex_GetWithTimestamp_Miss_TooLate(t *testing.T) {
-	raw, _ := WriteTestMultiseriesStream()
+	raw, _, _ := WriteTestMultiseriesStream()
 
 	r := bytes.NewReader(raw)
 

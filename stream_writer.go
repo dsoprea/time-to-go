@@ -45,6 +45,21 @@ func (sw *StreamWriter) Structure() *StreamStructure {
 	return sw.ss
 }
 
+func (sw *StreamWriter) Write(data []byte) (n int, err error) {
+	defer func() {
+		if state := recover(); state != nil {
+			err = log.Wrap(state.(error))
+		}
+	}()
+
+	n, err = sw.w.Write(data)
+	log.PanicIf(err)
+
+	sw.bumpPosition(int64(n))
+
+	return n, nil
+}
+
 // pushStreamMilestone records a milestone pertaining to the stream.
 func (sw *StreamWriter) pushStreamMilestone(milestoneType MilestoneType, comment string) (err error) {
 	defer func() {

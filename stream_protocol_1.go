@@ -83,7 +83,7 @@ func (sisi StreamIndexedSequenceInfo1) String() string {
 }
 
 // writeStreamFooter writes a block of data that describes the entire stream.
-func (sw *StreamWriter) writeStreamFooter(sequences []StreamIndexedSequenceInfo) (size int, err error) {
+func (sw *StreamWriter) writeStreamFooter(streamFooter StreamFooter) (size int, err error) {
 	defer func() {
 		if state := recover(); state != nil {
 			err = log.Wrap(state.(error))
@@ -93,6 +93,8 @@ func (sw *StreamWriter) writeStreamFooter(sequences []StreamIndexedSequenceInfo)
 	sw.b.Reset()
 
 	// Allocate series items.
+
+	sequences := streamFooter.Series()
 
 	sisiOffsets := make([]flatbuffers.UOffsetT, len(sequences))
 	for i, sisi := range sequences {
@@ -129,12 +131,13 @@ func (sw *StreamWriter) writeStreamFooter(sequences []StreamIndexedSequenceInfo)
 	ttgstream.StreamFooter1AddSeries(sw.b, seriesVectorOffset)
 
 	sfPosition := ttgstream.StreamFooter1End(sw.b)
+
 	sw.b.Finish(sfPosition)
 
 	data := sw.b.FinishedBytes()
 	streamLogger1.Debugf(nil, "Writing (%d) bytes for stream footer.", len(data))
 
-	err = sw.pushStreamMilestone(MtStreamFooterHeadByte, fmt.Sprintf("COUNT=(%d)", len(sequences)))
+	err = sw.pushStreamMilestone(MtStreamFooterHeadByte, fmt.Sprintf("Stream: %s", streamFooter))
 	log.PanicIf(err)
 
 	n, err := sw.w.Write(data)
@@ -167,7 +170,9 @@ func (sw *StreamWriter) writeStreamFooterWithSeriesFooters(series []SeriesFooter
 		indexedSeries[i] = sisi
 	}
 
-	footerSize, err = sw.writeStreamFooter(indexedSeries)
+	streamFooter := NewStreamFooter1FromStreamIndexedSequenceInfoSlice(indexedSeries)
+
+	footerSize, err = sw.writeStreamFooter(streamFooter)
 	log.PanicIf(err)
 
 	return footerSize, nil
@@ -183,6 +188,14 @@ func (sf *StreamFooter1) String() string {
 
 func (sf *StreamFooter1) Series() []StreamIndexedSequenceInfo {
 	return sf.series
+}
+
+func NewStreamFooter1FromStreamIndexedSequenceInfoSlice(series []StreamIndexedSequenceInfo) StreamFooter {
+	sf := &StreamFooter1{
+		series: series,
+	}
+
+	return sf
 }
 
 func NewStreamFooter1FromEncoded(footerBytes []byte) (sf StreamFooter, err error) {
@@ -216,9 +229,6 @@ func NewStreamFooter1FromEncoded(footerBytes []byte) (sf StreamFooter, err error
 		series[i] = sisi
 	}
 
-	sf = &StreamFooter1{
-		series: series,
-	}
-
+	sf = NewStreamFooter1FromStreamIndexedSequenceInfoSlice(series)
 	return sf, nil
 }

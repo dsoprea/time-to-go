@@ -1,224 +1,244 @@
 package timetogo
 
 import (
-	"bytes"
-	"io"
-	"reflect"
-	"testing"
-	"time"
+    "bytes"
+    "io"
+    "reflect"
+    "testing"
+    "time"
 
-	"github.com/dsoprea/go-logging"
+    "github.com/dsoprea/go-logging"
+    "github.com/randomingenuity/go-utility/filesystem"
 )
 
-func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1) {
-	b := new(bytes.Buffer)
+func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1, sb *StreamBuilder) {
+    b := rifs.NewSeekableBuffer()
 
-	// Stage stream.
+    // Stage stream.
 
-	sb := NewStreamBuilder(b)
+    sb = NewStreamBuilder(b)
+    sb.sw.SetStructureLogging(true)
 
-	// Add first series.
+    // Add first series.
 
-	// Make sure the timestamp now matches the same one later by using UTC.
-	headRecordTime := time.Date(2016, 10, 1, 12, 34, 56, 0, time.UTC)
-	headRecordTime = headRecordTime.Add(-time.Nanosecond * time.Duration(headRecordTime.Nanosecond()))
+    // Make sure the timestamp now matches the same one later by using UTC.
+    headRecordTime := time.Date(2016, 10, 1, 12, 34, 56, 0, time.UTC)
+    headRecordTime = headRecordTime.Add(-time.Nanosecond * time.Duration(headRecordTime.Nanosecond()))
 
-	tailRecordTime := headRecordTime.Add(time.Second * 20)
+    tailRecordTime := headRecordTime.Add(time.Second * 20)
 
-	sourceSha1 := []byte{
-		11,
-		22,
-		33,
-	}
+    sourceSha1 := []byte{
+        11,
+        22,
+        33,
+    }
 
-	originalSeriesFooter1 := NewSeriesFooter1(
-		headRecordTime,
-		tailRecordTime,
-		uint64(len(TestTimeSeriesData)),
-		22,
-		"some_filename",
-		sourceSha1)
+    originalSeriesFooter1 := NewSeriesFooter1(
+        headRecordTime,
+        tailRecordTime,
+        uint64(len(TestTimeSeriesData)),
+        22,
+        "some_filename",
+        sourceSha1)
 
-	dataReader1 := bytes.NewBuffer(TestTimeSeriesData)
+    dataReader1 := bytes.NewBuffer(TestTimeSeriesData)
 
-	err := sb.AddSeries(dataReader1, originalSeriesFooter1)
-	log.PanicIf(err)
+    err := sb.AddSeries(dataReader1, originalSeriesFooter1)
+    log.PanicIf(err)
 
-	seriesSize1 := sb.nextOffset
+    seriesSize1 := sb.nextOffset
 
-	if seriesSize1 != 179 {
-		log.Panicf("First series size not correct: (%d)", seriesSize1)
-	}
+    if seriesSize1 != 179 {
+        log.Panicf("first series size not correct: (%d)", seriesSize1)
+    }
 
-	// Add second series.
+    // Add second series.
 
-	sourceSha12 := []byte{
-		44,
-		55,
-		66,
-	}
+    sourceSha12 := []byte{
+        44,
+        55,
+        66,
+    }
 
-	originalSeriesFooter2 := NewSeriesFooter1(
-		headRecordTime.Add(time.Second*10),
-		tailRecordTime.Add(time.Second*10),
-		uint64(len(TestTimeSeriesData2)),
-		33,
-		"some_filename2",
-		sourceSha12)
+    originalSeriesFooter2 := NewSeriesFooter1(
+        headRecordTime.Add(time.Second*10),
+        tailRecordTime.Add(time.Second*10),
+        uint64(len(TestTimeSeriesData2)),
+        33,
+        "some_filename2",
+        sourceSha12)
 
-	dataReader2 := bytes.NewBuffer(TestTimeSeriesData2)
+    dataReader2 := bytes.NewBuffer(TestTimeSeriesData2)
 
-	err = sb.AddSeries(dataReader2, originalSeriesFooter2)
-	log.PanicIf(err)
+    err = sb.AddSeries(dataReader2, originalSeriesFooter2)
+    log.PanicIf(err)
 
-	seriesSize2 := sb.nextOffset
+    seriesSize2 := sb.nextOffset
 
-	if seriesSize2 != 364 {
-		log.Panicf("Second series size not correct: (%d)", seriesSize2)
-	}
+    if seriesSize2 != 364 {
+        log.Panicf("second series size not correct: (%d)", seriesSize2)
+    }
 
-	// Finish stream.
+    // Finish stream.
 
-	totalSize, err := sb.Finish()
-	log.PanicIf(err)
+    totalSize, err := sb.Finish()
+    log.PanicIf(err)
 
-	raw = b.Bytes()
+    raw = b.Bytes()
 
-	if len(raw) != 634 {
-		log.Panicf("stream data is not the right size: (%d)", len(raw))
-	}
+    if len(raw) != 634 {
+        log.Panicf("stream data is not the right size: (%d)", len(raw))
+    }
 
-	if totalSize != len(raw) {
-		log.Panicf("Stream components are not the right size: SERIES-SIZE=(%d) STREAM-SIZE=(%d)", totalSize, len(raw))
-	}
+    if totalSize != len(raw) {
+        log.Panicf("stream components are not the right size: SERIES-SIZE=(%d) STREAM-SIZE=(%d)", totalSize, len(raw))
+    }
 
-	series := []*SeriesFooter1{
-		originalSeriesFooter1,
-		originalSeriesFooter2,
-	}
+    // Now, verify that all of the boundaries are in the right places (at least theoretically).
+    structure := sb.Structure()
+    milestones := structure.MilestonesWithFilter(string(MtBoundaryMarker), -1)
 
-	return raw, series
+    if len(milestones) != 3 {
+        log.Panicf("exactly three boundary markers not written: %v", milestones)
+    }
+
+    boundaryOffset := milestones[0].Offset
+    if boundaryOffset != 178 {
+        log.Panicf("first boundary offset not correct: (%d)", boundaryOffset)
+    }
+
+    boundaryOffset = milestones[1].Offset
+    if boundaryOffset != 363 {
+        log.Panicf("second boundary offset not correct: (%d)", boundaryOffset)
+    }
+
+    series := []*SeriesFooter1{
+        originalSeriesFooter1,
+        originalSeriesFooter2,
+    }
+
+    return raw, series, sb
 }
 
 func TestNewIterator_Iterate(t *testing.T) {
-	raw, originalFooters := WriteTestMultiseriesStream()
+    raw, originalFooters, _ := WriteTestMultiseriesStream()
 
-	r := bytes.NewReader(raw)
-	sr := NewStreamReader(r)
+    r := bytes.NewReader(raw)
+    sr := NewStreamReader(r)
 
-	it, err := NewIterator(sr)
-	log.PanicIf(err)
+    it, err := NewIterator(sr)
+    log.PanicIf(err)
 
-	if it.Count() != 2 {
-		t.Fatalf("The stream didn't see exactly two series: (%d)", it.Count())
-	}
+    if it.Count() != 2 {
+        t.Fatalf("The stream didn't see exactly two series: (%d)", it.Count())
+    }
 
-	if it.Current() != 1 {
-		t.Fatalf("The current series is not (0): (%d)", it.Current())
-	}
+    if it.Current() != 1 {
+        t.Fatalf("The current series is not (0): (%d)", it.Current())
+    }
 
-	// Read first series.
+    // Read first series.
 
-	b2 := &bytes.Buffer{}
+    b2 := &bytes.Buffer{}
 
-	seriesFooterInterface2, checksumOk, err := it.Iterate(b2)
-	log.PanicIf(err)
+    seriesFooterInterface2, checksumOk, err := it.Iterate(b2)
+    log.PanicIf(err)
 
-	if checksumOk != true {
-		t.Fatalf("Checksum does not match.")
-	}
+    if checksumOk != true {
+        t.Fatalf("Checksum does not match.")
+    }
 
-	seriesData2 := b2.Bytes()
+    seriesData2 := b2.Bytes()
 
-	if it.Current() != 0 {
-		t.Fatalf("The current series is not (1): (%d)", it.Current())
-	}
+    if it.Current() != 0 {
+        t.Fatalf("The current series is not (1): (%d)", it.Current())
+    }
 
-	indexInfo2 := it.SeriesInfo(1)
+    indexInfo2 := it.SeriesInfo(1)
 
-	if indexInfo2.OriginalFilename() != originalFooters[1].OriginalFilename() {
-		t.Fatalf("Series 2 filename in the index doesn't match: [%s]", indexInfo2.OriginalFilename())
-	}
+    if indexInfo2.OriginalFilename() != originalFooters[1].OriginalFilename() {
+        t.Fatalf("Series 2 filename in the index doesn't match: [%s]", indexInfo2.OriginalFilename())
+    }
 
-	headIndex := indexInfo2.HeadRecordTime()
-	headFooter := seriesFooterInterface2.HeadRecordTime()
+    headIndex := indexInfo2.HeadRecordTime()
+    headFooter := seriesFooterInterface2.HeadRecordTime()
 
-	if headIndex != headFooter {
-		t.Fatalf("Series 2 head record-time in the index doesn't match: [%s] != [%s]", headIndex, headFooter)
-	}
+    if headIndex != headFooter {
+        t.Fatalf("Series 2 head record-time in the index doesn't match: [%s] != [%s]", headIndex, headFooter)
+    }
 
-	tailIndex := indexInfo2.TailRecordTime()
-	tailFooter := seriesFooterInterface2.TailRecordTime()
+    tailIndex := indexInfo2.TailRecordTime()
+    tailFooter := seriesFooterInterface2.TailRecordTime()
 
-	if tailIndex != tailFooter {
-		t.Fatalf("Series 2 tail record-time in the index doesn't match: [%s] != [%s]", tailIndex, tailFooter)
-	}
+    if tailIndex != tailFooter {
+        t.Fatalf("Series 2 tail record-time in the index doesn't match: [%s] != [%s]", tailIndex, tailFooter)
+    }
 
-	recoveredSeriesFooter2 := seriesFooterInterface2.(*SeriesFooter1)
+    recoveredSeriesFooter2 := seriesFooterInterface2.(*SeriesFooter1)
 
-	originalFooters[1].dataFnv1aChecksum = 0xba7ac887
+    originalFooters[1].dataFnv1aChecksum = 0xba7ac887
 
-	if reflect.DeepEqual(recoveredSeriesFooter2, originalFooters[1]) != true {
-		t.Fatalf("Series footer 2 was not recovered correctly.")
-	} else if bytes.Compare(seriesData2, TestTimeSeriesData2) != 0 {
-		t.Fatalf("Series data 2 was not recovered correctly.")
-	}
+    if reflect.DeepEqual(recoveredSeriesFooter2, originalFooters[1]) != true {
+        t.Fatalf("Series footer 2 was not recovered correctly.")
+    } else if bytes.Compare(seriesData2, TestTimeSeriesData2) != 0 {
+        t.Fatalf("Series data 2 was not recovered correctly.")
+    }
 
-	// Read second series.
+    // Read second series.
 
-	b1 := &bytes.Buffer{}
+    b1 := &bytes.Buffer{}
 
-	seriesFooterInterface1, checksumOk, err := it.Iterate(b1)
-	log.PanicIf(err)
+    seriesFooterInterface1, checksumOk, err := it.Iterate(b1)
+    log.PanicIf(err)
 
-	if checksumOk != true {
-		t.Fatalf("Checksum does not match.")
-	}
+    if checksumOk != true {
+        t.Fatalf("Checksum does not match.")
+    }
 
-	seriesData1 := b1.Bytes()
+    seriesData1 := b1.Bytes()
 
-	if it.Current() != -1 {
-		t.Fatalf("The current series is not (-1): (%d)", it.Current())
-	}
+    if it.Current() != -1 {
+        t.Fatalf("The current series is not (-1): (%d)", it.Current())
+    }
 
-	indexInfo1 := it.SeriesInfo(0)
+    indexInfo1 := it.SeriesInfo(0)
 
-	if indexInfo1.OriginalFilename() != originalFooters[0].OriginalFilename() {
-		t.Fatalf("Series 1 filename in the index doesn't match: [%s]", indexInfo1.OriginalFilename())
-	}
+    if indexInfo1.OriginalFilename() != originalFooters[0].OriginalFilename() {
+        t.Fatalf("Series 1 filename in the index doesn't match: [%s]", indexInfo1.OriginalFilename())
+    }
 
-	headIndex = indexInfo1.HeadRecordTime()
-	headFooter = seriesFooterInterface1.HeadRecordTime()
+    headIndex = indexInfo1.HeadRecordTime()
+    headFooter = seriesFooterInterface1.HeadRecordTime()
 
-	if headIndex != headFooter {
-		t.Fatalf("Series 1 head record-time in the index doesn't match: [%s] != [%s]", headIndex, headFooter)
-	}
+    if headIndex != headFooter {
+        t.Fatalf("Series 1 head record-time in the index doesn't match: [%s] != [%s]", headIndex, headFooter)
+    }
 
-	tailIndex = indexInfo1.TailRecordTime()
-	tailFooter = seriesFooterInterface1.TailRecordTime()
+    tailIndex = indexInfo1.TailRecordTime()
+    tailFooter = seriesFooterInterface1.TailRecordTime()
 
-	if tailIndex != tailFooter {
-		t.Fatalf("Series 1 tail record-time in the index doesn't match: [%s] != [%s]", tailIndex, tailFooter)
-	}
+    if tailIndex != tailFooter {
+        t.Fatalf("Series 1 tail record-time in the index doesn't match: [%s] != [%s]", tailIndex, tailFooter)
+    }
 
-	recoveredSeriesFooter1 := seriesFooterInterface1.(*SeriesFooter1)
+    recoveredSeriesFooter1 := seriesFooterInterface1.(*SeriesFooter1)
 
-	originalFooters[0].dataFnv1aChecksum = 0xefd515f5
+    originalFooters[0].dataFnv1aChecksum = 0xefd515f5
 
-	if reflect.DeepEqual(recoveredSeriesFooter1, originalFooters[0]) != true {
-		t.Fatalf("Series footer 1 was not recovered correctly.")
-	} else if bytes.Compare(seriesData1, TestTimeSeriesData) != 0 {
-		t.Fatalf("Series data 1 was not recovered correctly.")
-	}
+    if reflect.DeepEqual(recoveredSeriesFooter1, originalFooters[0]) != true {
+        t.Fatalf("Series footer 1 was not recovered correctly.")
+    } else if bytes.Compare(seriesData1, TestTimeSeriesData) != 0 {
+        t.Fatalf("Series data 1 was not recovered correctly.")
+    }
 
-	// Check EOF.
+    // Check EOF.
 
-	_, _, err = it.Iterate(nil)
-	if err != io.EOF {
-		t.Fatalf("Expected EOF.")
-	}
+    _, _, err = it.Iterate(nil)
+    if err != io.EOF {
+        t.Fatalf("Expected EOF.")
+    }
 
-	if it.Current() != -1 {
-		t.Fatalf("The current series is not (-1): (%d)", it.Current())
-	}
+    if it.Current() != -1 {
+        t.Fatalf("The current series is not (-1): (%d)", it.Current())
+    }
 }
