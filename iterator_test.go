@@ -320,7 +320,6 @@ func ExampleIterator_Iterate() {
 	// Stage stream.
 
 	sb := NewStreamBuilder(b)
-	sb.sw.SetStructureLogging(true)
 
 	series := AddTestSeries(sb)
 
@@ -338,7 +337,9 @@ func ExampleIterator_Iterate() {
 	// Open the stream.
 
 	r := bytes.NewReader(raw)
+
 	sr := NewStreamReader(r)
+	sr.SetStructureLogging(true)
 
 	it, err := NewIterator(sr)
 	log.PanicIf(err)
@@ -400,6 +401,16 @@ func ExampleIterator_Iterate() {
 		log.Panicf("expected EOF")
 	}
 
+	fmt.Printf("\n")
+
+	// Show that the structure loggingrepresents the offsets in reverse order
+	// (the order that they're visited). Note that certain milestones will
+	// include more than one entry. Some milestones can't be completely
+	// interpreted/applied until more information is read. So, we'll log those
+	// milestones as soon as they're encountered as well as when we have more
+	// information about them.
+	sr.Structure().Dump()
+
 	// Output:
 	// Test series (0): [d095abf5-126e-48a7-8974-885de92bd964]
 	// Test series (1): [8a4ba0c4-0a0d-442f-8256-1d61adb16abc]
@@ -412,4 +423,29 @@ func ExampleIterator_Iterate() {
 	// Series (1) data: X some time series data 2 X
 	// Encountered series (0): d095abf5-126e-48a7-8974-885de92bd964
 	// Series (0) data: some time series data
+	//
+	// ================
+	// Stream Structure
+	// ================
+	//
+	// OFF 633      MT boundary_marker                 SCOPE stream   UUID                                           COMM
+	//              MT boundary_marker                 SCOPE misc     UUID                                           COMM
+	// OFF 628      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
+	// OFF 364      MT footer_head_byte                SCOPE misc     UUID                                           COMM
+	//              MT stream_footer_head_byte         SCOPE stream   UUID                                           COMM
+	//              MT stream_footer_decoded           SCOPE stream   UUID                                           COMM Stream: StreamFooter1<COUNT=(2)>
+	// OFF 363      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	//              MT boundary_marker                 SCOPE misc     UUID                                           COMM
+	// OFF 358      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
+	// OFF 206      MT footer_head_byte                SCOPE misc     UUID                                           COMM
+	//              MT series_footer_head_byte         SCOPE series   UUID                                           COMM
+	//              MT series_footer_decoded           SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
+	// OFF 179      MT series_data_head_byte           SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
+	// OFF 178      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	//              MT boundary_marker                 SCOPE misc     UUID                                           COMM
+	// OFF 173      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
+	// OFF 21       MT footer_head_byte                SCOPE misc     UUID                                           COMM
+	//              MT series_footer_head_byte         SCOPE series   UUID                                           COMM
+	//              MT series_footer_decoded           SCOPE series   UUID d095abf5-126e-48a7-8974-885de92bd964      COMM
+	// OFF 0        MT series_data_head_byte           SCOPE series   UUID d095abf5-126e-48a7-8974-885de92bd964      COMM
 }
