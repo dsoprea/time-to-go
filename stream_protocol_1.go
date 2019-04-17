@@ -43,6 +43,9 @@ func NewStreamIndexedSequenceInfo1(uuid string, headRecordTime, tailRecordTime t
 	}
 }
 
+// NewStreamIndexedSequenceInfo1WithSeriesFooter returns a summary
+// `StreamIndexedSequenceInfo1` struct representing the given
+// `SeriesFooter`-compatible struct.
 func NewStreamIndexedSequenceInfo1WithSeriesFooter(seriesFooter SeriesFooter, absolutePosition int64) *StreamIndexedSequenceInfo1 {
 	return &StreamIndexedSequenceInfo1{
 		uuid:             seriesFooter.Uuid(),
@@ -178,6 +181,8 @@ func (sw *StreamWriter) writeStreamFooterWithSeriesFooters(series []SeriesFooter
 	return footerSize, nil
 }
 
+// StreamFooter1 represents the stream footer (version 1) that's encoded in the
+// stream.
 type StreamFooter1 struct {
 	series []StreamIndexedSequenceInfo
 }
@@ -186,10 +191,13 @@ func (sf *StreamFooter1) String() string {
 	return fmt.Sprintf("StreamFooter1<COUNT=(%d)>", len(sf.Series()))
 }
 
+// Series returns a list of all of the summary series information.
 func (sf *StreamFooter1) Series() []StreamIndexedSequenceInfo {
 	return sf.series
 }
 
+// NewStreamFooter1FromStreamIndexedSequenceInfoSlice returns a new
+// `StreamFooter`-compatible struct.
 func NewStreamFooter1FromStreamIndexedSequenceInfoSlice(series []StreamIndexedSequenceInfo) StreamFooter {
 	sf := &StreamFooter1{
 		series: series,
@@ -198,6 +206,8 @@ func NewStreamFooter1FromStreamIndexedSequenceInfoSlice(series []StreamIndexedSe
 	return sf
 }
 
+// NewStreamFooter1FromEncoded decodes the given bytes and returns a
+// `StreamFooter`-compatible struct.
 func NewStreamFooter1FromEncoded(footerBytes []byte) (sf StreamFooter, err error) {
 	defer func() {
 		if state := recover(); state != nil {

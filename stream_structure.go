@@ -8,28 +8,57 @@ import (
 	"github.com/dsoprea/go-logging"
 )
 
+// MilestoneType is the name of the event-type.
 type MilestoneType string
 
 const (
-	MtSeriesDataHeadByte   MilestoneType = "series_data_head_byte"
-	MtFooterHeadByte       MilestoneType = "footer_head_byte"
+	// MtSeriesDataHeadByte marks the first byte of a series' time-series data.
+	MtSeriesDataHeadByte MilestoneType = "series_data_head_byte"
+
+	// MtFooterHeadByte marks the first byte of a footer of a yet-unidentified
+	// type.
+	MtFooterHeadByte MilestoneType = "footer_head_byte"
+
+	// MtSeriesFooterHeadByte marks the first byte of a series footer.
 	MtSeriesFooterHeadByte MilestoneType = "series_footer_head_byte"
+
+	// MtStreamFooterHeadByte marks the first byte of a stream footer.
 	MtStreamFooterHeadByte MilestoneType = "stream_footer_head_byte"
-	MtBoundaryMarker       MilestoneType = "boundary_marker"
+
+	// MtBoundaryMarker identifies a boundary marker.
+	MtBoundaryMarker MilestoneType = "boundary_marker"
+
+	// MtShadowFooterHeadByte marks the first byte of the static shadow footer
+	// that immediately follows any other type of footer.
 	MtShadowFooterHeadByte MilestoneType = "shadow_footer_head_byte"
-	MtSeriesFooterDecoded  MilestoneType = "series_footer_decoded"
-	MtStreamFooterDecoded  MilestoneType = "stream_footer_decoded"
+
+	// MtSeriesFooterDecoded marks the first byte of a series footer that has
+	// been successfully decoded.
+	MtSeriesFooterDecoded MilestoneType = "series_footer_decoded"
+
+	// MtStreamFooterDecoded marks the first byte of a stream footer that has
+	// been successfully decoded.
+	MtStreamFooterDecoded MilestoneType = "stream_footer_decoded"
 )
 
+// ScopeType is which type of data the event applies to.
 type ScopeType int
 
 const (
+	// StSeries describes milestones that pertain to series.
 	StSeries ScopeType = iota
+
+	// StStream describes milestones that pertain to streams.
 	StStream ScopeType = iota
-	StMisc   ScopeType = iota
+
+	// StMisc describes milestones that are either agnostic (not likely) or
+	// could be any other scope type but there's not yet enough information
+	// to tell (likely).
+	StMisc ScopeType = iota
 )
 
 var (
+	// ScopeTypePhrases are simple labels for the various scope types.
 	ScopeTypePhrases = map[ScopeType]string{
 		StSeries: "series",
 		StStream: "stream",
@@ -37,6 +66,7 @@ var (
 	}
 )
 
+// StreamStructureOffsetInfo describes a single recorded milestone.
 type StreamStructureOffsetInfo struct {
 	Offset int64
 
@@ -54,10 +84,12 @@ func (ssoi StreamStructureOffsetInfo) String() string {
 	return fmt.Sprintf("StreamStructureOffsetInfo<OFFSET=(%d) MILESTONE=[%s] SCOPE=(%d) UUID=[%s] COMMENT=[%s]>", ssoi.Offset, ssoi.MilestoneType, ssoi.ScopeType, ssoi.SeriesUuid, ssoi.Comment)
 }
 
+// StreamStructure holds all of the milestones recorded for a given stream.
 type StreamStructure struct {
 	milestones []StreamStructureOffsetInfo
 }
 
+// NewStreamStructure returns a new `StreamStructure`.
 func NewStreamStructure() *StreamStructure {
 	milestones := make([]StreamStructureOffsetInfo, 0)
 
@@ -70,6 +102,8 @@ func (ss *StreamStructure) String() string {
 	return fmt.Sprintf("StreamStructure<COUNT=(%d)>", len(ss.milestones))
 }
 
+// Dump prints a table with all of the recorded milestones in the order that
+// they were encountered.
 func (ss *StreamStructure) Dump() {
 	if ss.milestones == nil {
 		log.Panicf("milestones not collected")
@@ -99,6 +133,7 @@ func (ss *StreamStructure) Dump() {
 	fmt.Printf("\n")
 }
 
+// Push records a single event.
 func (ss *StreamStructure) Push(offset int64, milestoneType MilestoneType, scopeType ScopeType, seriesUuid string, comment string) {
 	ssoi := StreamStructureOffsetInfo{
 		Offset:        offset,
@@ -111,10 +146,12 @@ func (ss *StreamStructure) Push(offset int64, milestoneType MilestoneType, scope
 	ss.milestones = append(ss.milestones, ssoi)
 }
 
+// Milestones returns all recorded milestones.
 func (ss *StreamStructure) Milestones() []StreamStructureOffsetInfo {
 	return ss.milestones
 }
 
+// StreamMilestones returns all stream-specific milestones.
 func (ss *StreamStructure) StreamMilestones() []StreamStructureOffsetInfo {
 	streamMilestones := make([]StreamStructureOffsetInfo, 0)
 	for _, ssoi := range ss.milestones {
@@ -128,6 +165,8 @@ func (ss *StreamStructure) StreamMilestones() []StreamStructureOffsetInfo {
 	return streamMilestones
 }
 
+// SeriesMilestones returns all series-specific milestones,optionally filtering
+// for a specific one. Returned as a flat list.
 func (ss *StreamStructure) SeriesMilestones(uuid string) []StreamStructureOffsetInfo {
 	seriesMilestones := make([]StreamStructureOffsetInfo, 0)
 	for _, ssoi := range ss.milestones {
@@ -172,6 +211,7 @@ func (ss *StreamStructure) SeriesMilestones(uuid string) []StreamStructureOffset
 	return seriesMilestones
 }
 
+// AllSeriesMilestones returns a map of all recorded series.
 func (ss *StreamStructure) AllSeriesMilestones() (milestoneIndex map[string][]StreamStructureOffsetInfo) {
 	milestoneIndex = make(map[string][]StreamStructureOffsetInfo)
 
@@ -213,6 +253,7 @@ func (ss *StreamStructure) AllSeriesMilestones() (milestoneIndex map[string][]St
 	return milestoneIndex
 }
 
+// MilestonesWithFilter returns all milestones, optionally applying a filter.
 func (ss *StreamStructure) MilestonesWithFilter(milestoneType string, scopeType int) []StreamStructureOffsetInfo {
 	milestones := make([]StreamStructureOffsetInfo, 0)
 	for _, ssoi := range ss.milestones {

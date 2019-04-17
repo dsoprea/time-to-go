@@ -99,38 +99,49 @@ func (sf *SeriesFooter1) String() string {
 		sf.sourceSha1)
 }
 
+// Version returns the series-protocol represented by this struct.
 func (sf *SeriesFooter1) Version() SeriesFooterVersion {
 	return SeriesFooterVersion1
 }
 
+// Uuid returns the UUID of the series.
 func (sf *SeriesFooter1) Uuid() string {
 	return sf.uuid
 }
 
+// HeadRecordTime is the earliest timestamp represented in the series data.
 func (sf *SeriesFooter1) HeadRecordTime() time.Time {
 	return sf.headRecordTime
 }
 
+// TailRecordTime is the latest timestamp represented in the series data.
 func (sf *SeriesFooter1) TailRecordTime() time.Time {
 	return sf.tailRecordTime
 }
 
+// BytesLength is the number of bytes of series data.
 func (sf *SeriesFooter1) BytesLength() uint64 {
 	return sf.bytesLength
 }
 
+// RecordCount is the number of records in the series-data.
 func (sf *SeriesFooter1) RecordCount() uint64 {
 	return sf.recordCount
 }
 
+// OriginalFilename is the optional filename of the original data.
 func (sf *SeriesFooter1) OriginalFilename() string {
 	return sf.originalFilename
 }
 
+// SourceSha1 is the SHA1 of the original data.
 func (sf *SeriesFooter1) SourceSha1() []byte {
 	return sf.sourceSha1
 }
 
+// DataFnv1aChecksum is the FNV-1a checksum of the original data. This is set
+// and checked automatically, though the result of the check is returned to the
+// caller rather than being enforced by us.
 func (sf *SeriesFooter1) DataFnv1aChecksum() uint32 {
 	return sf.dataFnv1aChecksum
 }

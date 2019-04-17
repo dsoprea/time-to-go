@@ -30,6 +30,7 @@ func (it *Iterator) SeriesInfo(i int) StreamIndexedSequenceInfo {
 	return it.seriesInfo[i]
 }
 
+// NewIterator returns an `Iterator` struct.
 func NewIterator(sr *StreamReader) (it *Iterator, err error) {
 	defer func() {
 		if state := recover(); state != nil {
@@ -54,6 +55,8 @@ func NewIterator(sr *StreamReader) (it *Iterator, err error) {
 	return it, nil
 }
 
+// Iterate reads the next series in the stream, from the back of the stream to
+// the front.
 func (it *Iterator) Iterate(dataWriter io.Writer) (seriesFooter SeriesFooter, checksumOk bool, err error) {
 	defer func() {
 		if state := recover(); state != nil {

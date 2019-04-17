@@ -9,6 +9,8 @@ import (
 	"github.com/dsoprea/go-logging"
 )
 
+// StreamBuilder is the high-level interface that owns the stream-building
+// process and wraps `StreamWriter`.
 type StreamBuilder struct {
 	ws     io.WriteSeeker
 	sw     *StreamWriter
@@ -20,6 +22,7 @@ type StreamBuilder struct {
 	copyBuffer []byte
 }
 
+// NewStreamBuilder returns a new `StreamBuilder`.
 func NewStreamBuilder(ws io.WriteSeeker) *StreamBuilder {
 	// TODO(dustin): !! Start returning an error value.
 
@@ -40,16 +43,19 @@ func NewStreamBuilder(ws io.WriteSeeker) *StreamBuilder {
 	}
 }
 
+// SetStructureLogging enables/disables structure tracking.
 func (sb *StreamBuilder) SetStructureLogging(flag bool) {
 	sb.sw.SetStructureLogging(flag)
 }
 
-func (sb *StreamBuilder) StreamWriter() *StreamWriter {
-	return sb.sw
-}
-
+// Structure returns the `StreamStructure` struct (if enabled).
 func (sb *StreamBuilder) Structure() *StreamStructure {
 	return sb.sw.Structure()
+}
+
+// StreamWriter returns the underlying `StreamWriter` struct.
+func (sb *StreamBuilder) StreamWriter() *StreamWriter {
+	return sb.sw
 }
 
 // AddSeries adds a single series and associated metadata to the stream. The

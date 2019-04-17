@@ -9,10 +9,14 @@ import (
 )
 
 var (
-	TestTimeSeriesData  = []byte("some time series data")
+	// TestTimeSeriesData is test data.
+	TestTimeSeriesData = []byte("some time series data")
+
+	// TestTimeSeriesData2 is test data.
 	TestTimeSeriesData2 = []byte("X some time series data 2 X")
 )
 
+// DumpBytes prints raw bytes.
 func DumpBytes(description string, rs io.ReadSeeker, position int64, count int, requireAll bool) {
 	originalPosition, err := rs.Seek(0, os.SEEK_CUR)
 	log.PanicIf(err)

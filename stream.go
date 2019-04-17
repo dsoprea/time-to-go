@@ -16,6 +16,8 @@ const (
 type SeriesFooterVersion uint16
 
 const (
+	// SeriesFooterVersion1 represents version 1 of the footer that describes a
+	// single series in the stream.
 	SeriesFooterVersion1 SeriesFooterVersion = 1
 )
 
@@ -23,6 +25,8 @@ const (
 type StreamFooterVersion uint16
 
 const (
+	// StreamFooterVersion1 represents version 1 of the footer that describes
+	// the whole stream.
 	StreamFooterVersion1 StreamFooterVersion = 1
 )
 
@@ -30,7 +34,10 @@ const (
 type FooterType byte
 
 const (
+	// FtSeriesFooter describes a footer that contains series information.
 	FtSeriesFooter FooterType = 1
+
+	// FtStreamFooter describes a footer that contains stream information.
 	FtStreamFooter FooterType = 2
 )
 
@@ -65,6 +72,8 @@ type SeriesFooter interface {
 	Version() SeriesFooterVersion
 }
 
+// StreamIndexedSequenceInfo describes summary information for a single series
+// encoded into the stream footer.
 type StreamIndexedSequenceInfo interface {
 	// Uuid is a unique string that uniquely identifies this series.
 	Uuid() string
@@ -82,6 +91,8 @@ type StreamIndexedSequenceInfo interface {
 	AbsolutePosition() int64
 }
 
+// StreamFooter describes a type that can return summary information about the
+// series in a stream. This represents a basic encoded stream type.
 type StreamFooter interface {
 	Series() []StreamIndexedSequenceInfo
 }

@@ -15,6 +15,8 @@ var (
 	updaterLogger = log.NewLogger("timetogo.updater")
 )
 
+// SerializeTimeSeriesDataGetter defines a type that is equipped to retrieve
+// time-series data given a UUID.
 type SerializeTimeSeriesDataGetter interface {
 	GetSerializeTimeSeriesData(seriesFooter SeriesFooter) (rc io.ReadCloser, err error)
 }
@@ -57,6 +59,7 @@ type currentPersistedSeries struct {
 	TotalSeriesSize int
 }
 
+// NewUpdater returns a new `Updater` struct.
 func NewUpdater(rws io.ReadWriteSeeker, getter SerializeTimeSeriesDataGetter) *Updater {
 	sr := NewStreamReader(rws)
 
@@ -116,10 +119,12 @@ func NewUpdater(rws io.ReadWriteSeeker, getter SerializeTimeSeriesDataGetter) *U
 	}
 }
 
+// SetStructureLogging enables/disables structure tracking.
 func (updater *Updater) SetStructureLogging(flag bool) {
 	updater.sb.StreamWriter().SetStructureLogging(flag)
 }
 
+// Structure returns the `StreamStructure` struct (if enabled).
 func (updater *Updater) Structure() *StreamStructure {
 	return updater.sb.StreamWriter().Structure()
 }
@@ -255,6 +260,7 @@ func (updater *Updater) addExistingSeries(seriesFooter SeriesFooter, cps current
 	return nil
 }
 
+// UpdateStats keeps a tally of various operations.
 type UpdateStats struct {
 	Skips int
 	Adds  int
@@ -264,6 +270,7 @@ func (us UpdateStats) String() string {
 	return fmt.Sprintf("UpdateStats<SKIPS=(%d) ADDS=(%d)>", us.Skips, us.Adds)
 }
 
+// Write executes the queued changes.
 func (updater *Updater) Write() (totalSize int, stats UpdateStats, err error) {
 	defer func() {
 		if state := recover(); state != nil {

@@ -15,17 +15,20 @@ var (
 	streamReaderLogger = log.NewLogger("timetogo.stream")
 )
 
+// StreamReader knows how to parse the raw stream.
 type StreamReader struct {
 	rs io.ReadSeeker
 	ss *StreamStructure
 }
 
+// NewStreamReader returns a new `StreamReader`.
 func NewStreamReader(rs io.ReadSeeker) *StreamReader {
 	return &StreamReader{
 		rs: rs,
 	}
 }
 
+// SetStructureLogging enables/disables structure tracking.
 func (sr *StreamReader) SetStructureLogging(flag bool) {
 	if flag == true {
 		sr.ss = NewStreamStructure()
@@ -34,6 +37,7 @@ func (sr *StreamReader) SetStructureLogging(flag bool) {
 	}
 }
 
+// Structure returns the `StreamStructure` struct (if enabled).
 func (sr *StreamReader) Structure() *StreamStructure {
 	if sr.ss == nil {
 		log.Panicf("not collecting structure info")
@@ -269,6 +273,8 @@ func (sr *StreamReader) readStreamFooter() (sf StreamFooter, nextBoundaryOffset 
 	return sf, nextBoundaryOffset, totalFooterSize, nil
 }
 
+// ReadSeriesInfoWithBoundaryPosition returns a `SeriesFooter` for the series
+// whose boundary marker is at the given position.
 func (sr *StreamReader) ReadSeriesInfoWithBoundaryPosition(position int64) (seriesFooter SeriesFooter, dataOffset int64, seriesSize int, err error) {
 	defer func() {
 		if state := recover(); state != nil {
@@ -291,6 +297,8 @@ func (sr *StreamReader) ReadSeriesInfoWithBoundaryPosition(position int64) (seri
 	return seriesFooter, dataOffset, seriesSize, nil
 }
 
+// ReadSeriesInfoWithIndexedInfo returns the `SeriesFooter` struct described by
+// the given `StreamIndexedSequenceInfo` struct.
 func (sr *StreamReader) ReadSeriesInfoWithIndexedInfo(sisi StreamIndexedSequenceInfo) (seriesFooter SeriesFooter, dataOffset int64, seriesSize int, err error) {
 	defer func() {
 		if state := recover(); state != nil {
@@ -306,6 +314,9 @@ func (sr *StreamReader) ReadSeriesInfoWithIndexedInfo(sisi StreamIndexedSequence
 	return seriesFooter, dataOffset, seriesSize, nil
 }
 
+// ReadSeriesWithIndexedInfo returns the `SeriesFooter` struct described by
+// the given `StreamIndexedSequenceInfo` struct and writes the raw data
+// associated with it to `dataWriter`.
 func (sr *StreamReader) ReadSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo, dataWriter io.Writer) (seriesFooter SeriesFooter, seriesSize int, checksumOk bool, err error) {
 	defer func() {
 		if state := recover(); state != nil {

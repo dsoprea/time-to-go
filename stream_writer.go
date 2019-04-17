@@ -13,6 +13,8 @@ var (
 	streamWriterLogger = log.NewLogger("timetogo.stream")
 )
 
+// StreamWriter owns the semantics of encoding our storage structs to the raw
+// bytes.
 type StreamWriter struct {
 	w        io.Writer
 	b        *flatbuffers.Builder
@@ -20,6 +22,7 @@ type StreamWriter struct {
 	position int64
 }
 
+// NewStreamWriter returns a new `StreamWriter` struct.
 func NewStreamWriter(w io.Writer) *StreamWriter {
 	b := flatbuffers.NewBuilder(0)
 
@@ -29,6 +32,7 @@ func NewStreamWriter(w io.Writer) *StreamWriter {
 	}
 }
 
+// SetStructureLogging enabled/disables structure logging.
 func (sw *StreamWriter) SetStructureLogging(flag bool) {
 	if flag == true {
 		sw.ss = NewStreamStructure()
@@ -37,6 +41,7 @@ func (sw *StreamWriter) SetStructureLogging(flag bool) {
 	}
 }
 
+// Structure returns the recorded structure (if enabled).
 func (sw *StreamWriter) Structure() *StreamStructure {
 	if sw.ss == nil {
 		log.Panicf("not collecting structure info")
