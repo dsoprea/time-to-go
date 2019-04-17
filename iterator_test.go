@@ -2,6 +2,7 @@ package timetogo
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"reflect"
 	"testing"
@@ -156,8 +157,8 @@ func TestNewIterator_Iterate(t *testing.T) {
 
 	indexInfo2 := it.SeriesInfo(1)
 
-	if indexInfo2.OriginalFilename() != originalFooters[1].OriginalFilename() {
-		t.Fatalf("Series 2 filename in the index doesn't match: [%s]", indexInfo2.OriginalFilename())
+	if indexInfo2.Uuid() != originalFooters[1].Uuid() {
+		t.Fatalf("Series 2 UUID in the index isn't correct: [%s] != [%s]", indexInfo2.Uuid(), originalFooters[1].Uuid())
 	}
 
 	headIndex := indexInfo2.HeadRecordTime()
@@ -203,8 +204,8 @@ func TestNewIterator_Iterate(t *testing.T) {
 
 	indexInfo1 := it.SeriesInfo(0)
 
-	if indexInfo1.OriginalFilename() != originalFooters[0].OriginalFilename() {
-		t.Fatalf("Series 1 filename in the index doesn't match: [%s]", indexInfo1.OriginalFilename())
+	if indexInfo1.Uuid() != originalFooters[0].Uuid() {
+		t.Fatalf("Series 1 UUID in the index isn't correct: [%s] != [%s]", indexInfo1.Uuid(), originalFooters[0].Uuid())
 	}
 
 	headIndex = indexInfo1.HeadRecordTime()
@@ -241,4 +242,174 @@ func TestNewIterator_Iterate(t *testing.T) {
 	if it.Current() != -1 {
 		t.Fatalf("The current series is not (-1): (%d)", it.Current())
 	}
+}
+
+func AddTestSeries(sb *StreamBuilder) (footers []*SeriesFooter1) {
+	// Add first series.
+
+	// Make sure the timestamp now matches the same one later by using UTC.
+	headRecordTime := time.Date(2016, 10, 1, 12, 34, 56, 0, time.UTC)
+	headRecordTime = headRecordTime.Add(-time.Nanosecond * time.Duration(headRecordTime.Nanosecond()))
+
+	tailRecordTime := headRecordTime.Add(time.Second * 20)
+
+	sourceSha1 := []byte{
+		11,
+		22,
+		33,
+	}
+
+	originalSeriesFooter1 := NewSeriesFooter1(
+		headRecordTime,
+		tailRecordTime,
+		uint64(len(TestTimeSeriesData)),
+		22,
+		"some_filename",
+		sourceSha1)
+
+	// Force a specific UUID so we know the exact output in support of the
+	originalSeriesFooter1.uuid = "d095abf5-126e-48a7-8974-885de92bd964"
+
+	dataReader1 := bytes.NewBuffer(TestTimeSeriesData)
+
+	err := sb.AddSeries(dataReader1, originalSeriesFooter1)
+	log.PanicIf(err)
+
+	// Add second series.
+
+	sourceSha12 := []byte{
+		44,
+		55,
+		66,
+	}
+
+	originalSeriesFooter2 := NewSeriesFooter1(
+		headRecordTime.Add(time.Second*10),
+		tailRecordTime.Add(time.Second*10),
+		uint64(len(TestTimeSeriesData2)),
+		33,
+		"some_filename2",
+		sourceSha12)
+
+	// Force a specific UUID so we know the exact output in support of the
+	// testable examples.
+	originalSeriesFooter2.uuid = "8a4ba0c4-0a0d-442f-8256-1d61adb16abc"
+
+	dataReader2 := bytes.NewBuffer(TestTimeSeriesData2)
+
+	err = sb.AddSeries(dataReader2, originalSeriesFooter2)
+	log.PanicIf(err)
+
+	series := []*SeriesFooter1{
+		originalSeriesFooter1,
+		originalSeriesFooter2,
+	}
+
+	return series
+}
+
+// ExampleIterator_Iterate shows how to parse and step through stream data.
+// Remember that we'll start from the end and step backwards.
+//
+// See ExampleStreamReader_ReadSeriesWithIndexedInfo for an example of how to
+// perform random or ordered reads of series within a stream (instead of having
+// to step backward through all of them, in order).
+func ExampleIterator_Iterate() {
+	b := rifs.NewSeekableBuffer()
+
+	// Stage stream.
+
+	sb := NewStreamBuilder(b)
+	sb.sw.SetStructureLogging(true)
+
+	series := AddTestSeries(sb)
+
+	for i, seriesFooter := range series {
+		fmt.Printf("Test series (%d): [%s]\n", i, seriesFooter.Uuid())
+	}
+
+	fmt.Printf("\n")
+
+	_, err := sb.Finish()
+	log.PanicIf(err)
+
+	raw := b.Bytes()
+
+	// Open the stream.
+
+	r := bytes.NewReader(raw)
+	sr := NewStreamReader(r)
+
+	it, err := NewIterator(sr)
+	log.PanicIf(err)
+
+	// Very cheap calls. Keep in mind that we will actually iterate through
+	// these in reverse order, below.
+	fmt.Printf("Number of series recorded in stream footer: (%d)\n", it.Count())
+
+	sisi := it.SeriesInfo(0)
+	fmt.Printf("Indexed series 0: %s\n", sisi.Uuid())
+
+	sisi = it.SeriesInfo(1)
+	fmt.Printf("Indexed series 1: %s\n", sisi.Uuid())
+
+	fmt.Printf("\n")
+
+	// Read first encountered series.
+
+	seriesNumber := it.Current()
+
+	seriesData := new(bytes.Buffer)
+
+	seriesFooter, checksumOk, err := it.Iterate(seriesData)
+	log.PanicIf(err)
+
+	if checksumOk != true {
+		log.Panicf("first encountered checksum does not match")
+	}
+
+	fmt.Printf("Encountered series (%d): %s\n", seriesNumber, seriesFooter.Uuid())
+
+	// This is the original time-series' blob. It's the caller's responsibility
+	// to encode it and decode it.
+	fmt.Printf("Series (%d) data: %s\n", seriesNumber, string(seriesData.Bytes()))
+
+	// Read second encountered series.
+
+	seriesNumber = it.Current()
+
+	seriesData = new(bytes.Buffer)
+
+	seriesFooter, checksumOk, err = it.Iterate(seriesData)
+	log.PanicIf(err)
+
+	if checksumOk != true {
+		log.Panicf("second encountered checksum does not match")
+	}
+
+	fmt.Printf("Encountered series (%d): %s\n", seriesNumber, seriesFooter.Uuid())
+
+	// This is the original time-series' blob. It's the caller's responsibility
+	// to encode it and decode it.
+	fmt.Printf("Series (%d) data: %s\n", seriesNumber, string(seriesData.Bytes()))
+
+	// Check EOF.
+
+	_, _, err = it.Iterate(nil)
+	if err != io.EOF {
+		log.Panicf("expected EOF")
+	}
+
+	// Output:
+	// Test series (0): [d095abf5-126e-48a7-8974-885de92bd964]
+	// Test series (1): [8a4ba0c4-0a0d-442f-8256-1d61adb16abc]
+	//
+	// Number of series recorded in stream footer: (2)
+	// Indexed series 0: d095abf5-126e-48a7-8974-885de92bd964
+	// Indexed series 1: 8a4ba0c4-0a0d-442f-8256-1d61adb16abc
+	//
+	// Encountered series (1): 8a4ba0c4-0a0d-442f-8256-1d61adb16abc
+	// Series (1) data: X some time series data 2 X
+	// Encountered series (0): d095abf5-126e-48a7-8974-885de92bd964
+	// Series (0) data: some time series data
 }

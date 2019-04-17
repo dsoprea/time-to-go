@@ -122,3 +122,95 @@ func TestBuilder_Finish(t *testing.T) {
 		t.Fatalf("Next-boundary offset after the series-data is not correct: (%d)", nextBoundaryOffset)
 	}
 }
+
+// ExampleStreamBuilder_AddSeries shows us to build and write a stream. You can
+// create new series or use existing series (from iterating an existing stream
+// using `Iterate`). The `Updater` type may be used for more intelligent
+// updates.
+func ExampleStreamBuilder_AddSeries() {
+	b := rifs.NewSeekableBuffer()
+
+	sb := NewStreamBuilder(b)
+
+	// Enable structure-tracking so we can print a table of the structure later.
+	sb.SetStructureLogging(true)
+
+	// Make sure the timestamp now matches the same one later by using UTC.
+	headRecordTime := time.Date(2016, 10, 1, 12, 34, 56, 0, time.UTC)
+	headRecordTime = headRecordTime.Add(-time.Nanosecond * time.Duration(headRecordTime.Nanosecond()))
+
+	tailRecordTime := headRecordTime.Add(time.Second * 20)
+
+	// Add first series.
+
+	sourceSha1 := []byte{
+		11,
+		22,
+		33,
+	}
+
+	originalSeriesFooter1 := NewSeriesFooter1(
+		headRecordTime,
+		tailRecordTime,
+		uint64(len(TestTimeSeriesData)),
+		22,
+		"some_filename",
+		sourceSha1)
+
+	// Force a specific UUID so we know what to expect below.
+	originalSeriesFooter1.uuid = "ca38f9e3-bdea-4bc8-9a8a-22681ea815b0"
+
+	dataReader1 := bytes.NewBuffer(TestTimeSeriesData)
+
+	err := sb.AddSeries(dataReader1, originalSeriesFooter1)
+	log.PanicIf(err)
+
+	// Add second series.
+
+	sourceSha12 := []byte{
+		44,
+		55,
+		66,
+	}
+
+	originalSeriesFooter2 := NewSeriesFooter1(
+		headRecordTime.Add(time.Second*10),
+		tailRecordTime.Add(time.Second*10),
+		uint64(len(TestTimeSeriesData2)),
+		33,
+		"some_filename2",
+		sourceSha12)
+
+	// Force a specific UUID so we know what to expect below.
+	originalSeriesFooter2.uuid = "1616bda4-c570-4d05-a346-674e4c051460"
+
+	dataReader2 := bytes.NewBuffer(TestTimeSeriesData2)
+
+	err = sb.AddSeries(dataReader2, originalSeriesFooter2)
+	log.PanicIf(err)
+
+	// Finish stream.
+
+	_, err = sb.Finish()
+	log.PanicIf(err)
+
+	// Print final structure.
+	sb.Structure().Dump()
+
+	// Output:
+	// ================
+	// Stream Structure
+	// ================
+	//
+	// OFF 0        MT series_data_head_byte           SCOPE series   UUID ca38f9e3-bdea-4bc8-9a8a-22681ea815b0      COMM
+	// OFF 21       MT series_footer_head_byte         SCOPE series   UUID ca38f9e3-bdea-4bc8-9a8a-22681ea815b0      COMM
+	// OFF 173      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
+	// OFF 178      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	// OFF 179      MT series_data_head_byte           SCOPE series   UUID 1616bda4-c570-4d05-a346-674e4c051460      COMM
+	// OFF 206      MT series_footer_head_byte         SCOPE series   UUID 1616bda4-c570-4d05-a346-674e4c051460      COMM
+	// OFF 358      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
+	// OFF 363      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	// OFF 364      MT stream_footer_head_byte         SCOPE stream   UUID                                           COMM Stream: StreamFooter1<COUNT=(2)>
+	// OFF 628      MT shadow_footer_head_byte         SCOPE stream   UUID                                           COMM
+	// OFF 633      MT boundary_marker                 SCOPE stream   UUID                                           COMM
+}
