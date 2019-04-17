@@ -230,6 +230,7 @@ func NewStreamFooter1FromEncoded(footerBytes []byte) (sf StreamFooter, err error
 		tailRecordTime := time.Unix(int64(sisiEncoded.TailRecordEpoch()), 0).In(time.UTC)
 
 		sisi := &StreamIndexedSequenceInfo1{
+			uuid:             string(sisiEncoded.Uuid()),
 			headRecordTime:   headRecordTime,
 			tailRecordTime:   tailRecordTime,
 			originalFilename: string(sisiEncoded.OriginalFilename()),
