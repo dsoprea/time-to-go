@@ -1,7 +1,6 @@
 package timetogo
 
 import (
-	"errors"
 	"io"
 	"time"
 
@@ -9,10 +8,8 @@ import (
 	"github.com/dsoprea/go-time-index"
 )
 
-var (
-	ErrSeriesNotFound = errors.New("series not found")
-)
-
+// Index allows you to efficiently identify a recorded series based on criteria
+// that can be found in the info in the stream footer.
 type Index struct {
 	rs         io.ReadSeeker
 	sr         *StreamReader
@@ -20,6 +17,7 @@ type Index struct {
 	intervals  timeindex.TimeIntervalSlice
 }
 
+// NewIndex returns a new `Index` struct.
 func NewIndex(rs io.ReadSeeker) (index *Index, err error) {
 	sr := NewStreamReader(rs)
 
@@ -51,6 +49,7 @@ func NewIndex(rs io.ReadSeeker) (index *Index, err error) {
 	return index, nil
 }
 
+// GetWithTimestamp returns all series that contain the given timestamp.
 func (index *Index) GetWithTimestamp(timestamp time.Time) (matched []StreamIndexedSequenceInfo, err error) {
 	defer func() {
 		if state := recover(); state != nil {
