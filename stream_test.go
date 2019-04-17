@@ -8,29 +8,34 @@ import (
 	"testing"
 
 	"github.com/dsoprea/go-logging"
+	"github.com/randomingenuity/go-utility/filesystem"
 )
 
 func TestStream__Protocol1(t *testing.T) {
-	b := new(bytes.Buffer)
-
 	// Stage stream.
 
-	cw := NewCountingWriter(b)
-	sw := NewStreamWriter(cw)
+	sb := rifs.NewSeekableBuffer()
+	sw := NewStreamWriter(sb)
 
-	testSeriesFooter, seriesSize := WriteTestSeriesFooter1(cw, sw)
+	testSeriesFooter, seriesSize := WriteTestSeriesFooter1(sb, sw)
 
-	if cw.Position() != seriesSize {
-		t.Fatalf("Current file pointer is not on the boundary marker after the stream footer: (%d) != (%d)", cw.Position(), seriesSize)
+	position, err := sb.Seek(0, os.SEEK_CUR)
+	log.PanicIf(err)
+
+	if int(position) != seriesSize {
+		t.Fatalf("Current file pointer is not on the boundary marker after the stream footer: (%d) != (%d)", position, seriesSize)
 	}
 
 	testStreamFooterSeries, streamSize := WriteTestStreamFooter1(sw)
 
-	if cw.Position() != seriesSize+streamSize {
-		t.Fatalf("Current file pointer is not on the boundary marker after the series footer: (%d) != (%d)", cw.Position(), seriesSize+streamSize)
+	position, err = sb.Seek(0, os.SEEK_CUR)
+	log.PanicIf(err)
+
+	if int(position) != seriesSize+streamSize {
+		t.Fatalf("Current file pointer is not on the boundary marker after the series footer: (%d) != (%d)", position, seriesSize+streamSize)
 	}
 
-	raw := b.Bytes()
+	raw := sb.Bytes()
 
 	if len(raw) != 353 {
 		t.Fatalf("Encoded data is not the right size: (%d)", len(raw))
@@ -44,7 +49,7 @@ func TestStream__Protocol1(t *testing.T) {
 	sr := NewStreamReader(r)
 
 	// Put us on the trailing NUL byte.
-	err := sr.Reset()
+	err = sr.Reset()
 	log.PanicIf(err)
 
 	// Vaidate stream footer.
