@@ -71,36 +71,45 @@ func NewUpdater(rws io.ReadWriteSeeker, seriesDataWriter interface{}) *Updater {
 
 	sb := NewStreamBuilder(bw)
 
+	dataPresent := true
 	it, err := NewIterator(sr)
-	log.PanicIf(err)
+	if err != nil {
+		if err == io.EOF {
+			dataPresent = false
+		} else {
+			log.Panic(err)
+		}
+	}
 
 	// Read existing series data. This does N seeks through the stream, but is
 	// otherwise an efficient operation.
 
 	knownSeriesIndex := make(map[seriesIndexKey]currentPersistedSeries)
 
-	for i := 0; i < it.Count(); i++ {
-		sisi := it.SeriesInfo(i)
+	if dataPresent == true {
+		for i := 0; i < it.Count(); i++ {
+			sisi := it.SeriesInfo(i)
 
-		seriesFooter, filePosition, totalSeriesSize, err := sr.ReadSeriesInfoWithIndexedInfo(sisi)
-		log.PanicIf(err)
+			seriesFooter, filePosition, totalSeriesSize, err := sr.ReadSeriesInfoWithIndexedInfo(sisi)
+			log.PanicIf(err)
 
-		sik := updateSeriesIndexingKey(seriesFooter)
+			sik := updateSeriesIndexingKey(seriesFooter)
 
-		cps := currentPersistedSeries{
-			SeriesPosition:  i,
-			FilePosition:    filePosition,
-			SeriesFooter:    seriesFooter,
-			TotalSeriesSize: totalSeriesSize,
+			cps := currentPersistedSeries{
+				SeriesPosition:  i,
+				FilePosition:    filePosition,
+				SeriesFooter:    seriesFooter,
+				TotalSeriesSize: totalSeriesSize,
+			}
+
+			knownSeriesIndex[sik] = cps
 		}
 
-		knownSeriesIndex[sik] = cps
+		// Now that we've enumerated the series, go back to the front of the stream
+		// so that we're in a position to begin stepping forward.
+		_, err = bw.Seek(0, os.SEEK_SET)
+		log.PanicIf(err)
 	}
-
-	// Now that we've enumerated the series, go back to the front of the stream
-	// so that we're in a position to begin stepping forward.
-	_, err = bw.Seek(0, os.SEEK_SET)
-	log.PanicIf(err)
 
 	newSeries := make([]SeriesFooter, 0)
 

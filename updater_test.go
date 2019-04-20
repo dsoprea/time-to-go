@@ -471,3 +471,66 @@ func ExampleUpdater_AddSeries() {
 	//              MT series_footer_decoded           SCOPE series   UUID d095abf5-126e-48a7-8974-885de92bd964      COMM
 	// OFF 0        MT series_data_head_byte           SCOPE series   UUID d095abf5-126e-48a7-8974-885de92bd964      COMM
 }
+
+func TestUpdater_AddSeries_FromEmpty(t *testing.T) {
+	sourceSha13 := []byte{
+		77,
+		88,
+		99,
+	}
+
+	now := time.Now()
+
+	sf1 := NewSeriesFooter1(
+		now.Add(time.Second*10),
+		now.Add(time.Second*20),
+		uint64(len(TestTimeSeriesData2)),
+		33,
+		"some_filename3",
+		sourceSha13)
+
+	dataReader1 := bytes.NewBuffer(TestTimeSeriesData2)
+
+	sdtg := &SeriesDataTestGenerator{
+		data: map[string]io.Reader{
+			sf1.Uuid(): dataReader1,
+		},
+	}
+
+	raw := []byte{}
+	rws := rifs.NewSeekableBufferWithBytes(raw)
+
+	updater := NewUpdater(rws, sdtg)
+	updater.AddSeries(sf1)
+
+	totalSize, stats, err := updater.Write()
+	log.PanicIf(err)
+
+	expectedStats := UpdateStats{
+		Adds: 1,
+	}
+
+	if stats != expectedStats {
+		t.Fatalf("Stats not correct: %s", stats)
+	} else if totalSize != 343 {
+		t.Fatalf("Total stream size not correct: (%d)", totalSize)
+	}
+
+	// Validate.
+
+	sr := NewStreamReader(rws)
+
+	it, err := NewIterator(sr)
+	log.PanicIf(err)
+
+	if it.Count() != 1 {
+		t.Fatalf("The stream doesn't have exactly two series: (%d)", it.Count())
+	}
+
+	seriesFooter1, _, err := it.Iterate(nil)
+	log.PanicIf(err)
+
+	if seriesFooter1.Uuid() != sf1.Uuid() {
+		t.Fatalf("First encountered series is not correct.")
+	}
+}

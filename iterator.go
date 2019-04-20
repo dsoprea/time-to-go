@@ -42,7 +42,13 @@ func NewIterator(sr *StreamReader) (it *Iterator, err error) {
 	log.PanicIf(err)
 
 	streamFooter, _, _, err := sr.readStreamFooter()
-	log.PanicIf(err)
+	if err != nil {
+		if err == io.EOF {
+			return nil, err
+		}
+
+		log.Panic(err)
+	}
 
 	seriesInfo := streamFooter.Series()
 

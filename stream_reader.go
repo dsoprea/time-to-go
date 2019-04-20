@@ -130,6 +130,14 @@ func (sr *StreamReader) readOneFooter() (footerVersion uint16, footerType Footer
 	boundaryMarker := make([]byte, 1)
 
 	_, err = sr.rs.Read(boundaryMarker)
+	if err != nil {
+		if err == io.EOF {
+			return 0, FooterType(0), nil, 0, err
+		}
+
+		log.Panic(err)
+	}
+
 	log.PanicIf(err)
 
 	if boundaryMarker[0] != 0 {
@@ -240,7 +248,13 @@ func (sr *StreamReader) readStreamFooter() (sf StreamFooter, nextBoundaryOffset 
 	log.PanicIf(err)
 
 	streamFooterVersion, footerType, footerBytes, footerOffset, err := sr.readOneFooter()
-	log.PanicIf(err)
+	if err != nil {
+		if err == io.EOF {
+			return nil, 0, 0, err
+		}
+
+		log.Panic(err)
+	}
 
 	err = sr.pushStreamMilestone(footerOffset, MtStreamFooterHeadByte, "")
 	log.PanicIf(err)
