@@ -29,11 +29,14 @@ type SeriesFooter1 struct {
 	// bytesLength is the number of bytes occupied on-disk
 	bytesLength uint64
 
+	// createdTime is the timestamp of the first write of this series
+	createdTime time.Time
+
+	// updatedTime is the timestamp of the last update
+	updatedTime time.Time
+
 	// recordCount is the number of records in the list
 	recordCount uint64
-
-	// originalFilename is the filename of the source-data
-	originalFilename string
 
 	// sourceSha1 is the SHA1 of the raw source-data; can be used to determine
 	// if the source-data has changed
@@ -45,17 +48,21 @@ type SeriesFooter1 struct {
 
 // NewSeriesFooter1 returns a series footer structure. Version 1. The checksum
 // will be populated on write.
-func NewSeriesFooter1(headRecordTime time.Time, tailRecordTime time.Time, bytesLength, recordCount uint64, originalFilename string, sourceSha1 []byte) *SeriesFooter1 {
+func NewSeriesFooter1(headRecordTime time.Time, tailRecordTime time.Time, bytesLength, recordCount uint64, sourceSha1 []byte) *SeriesFooter1 {
 	uuid := uuid.New().String()
 
+	now := time.Now().UTC()
+	now = now.Add(-time.Nanosecond * time.Duration(now.Nanosecond()))
+
 	return &SeriesFooter1{
-		uuid:             uuid,
-		headRecordTime:   headRecordTime.UTC(),
-		tailRecordTime:   tailRecordTime.UTC(),
-		bytesLength:      bytesLength,
-		recordCount:      recordCount,
-		originalFilename: originalFilename,
-		sourceSha1:       sourceSha1,
+		uuid:           uuid,
+		headRecordTime: headRecordTime.UTC(),
+		tailRecordTime: tailRecordTime.UTC(),
+		bytesLength:    bytesLength,
+		recordCount:    recordCount,
+		createdTime:    now,
+		updatedTime:    now,
+		sourceSha1:     sourceSha1,
 	}
 }
 
@@ -72,31 +79,41 @@ func NewSeriesFooter1FromEncoded(footerBytes []byte) (sf *SeriesFooter1, err err
 
 	headRecordTime := time.Unix(int64(sfEncoded.HeadRecordEpoch()), 0).In(time.UTC)
 	tailRecordTime := time.Unix(int64(sfEncoded.TailRecordEpoch()), 0).In(time.UTC)
+	createdTime := time.Unix(int64(sfEncoded.CreatedEpoch()), 0).In(time.UTC)
+	updatedTime := time.Unix(int64(sfEncoded.UpdatedEpoch()), 0).In(time.UTC)
 
 	sf = &SeriesFooter1{
 		uuid:              string(sfEncoded.Uuid()),
 		headRecordTime:    headRecordTime,
 		tailRecordTime:    tailRecordTime,
 		bytesLength:       sfEncoded.BytesLength(),
+		createdTime:       createdTime,
+		updatedTime:       updatedTime,
 		recordCount:       sfEncoded.RecordCount(),
-		originalFilename:  string(sfEncoded.OriginalFilename()),
-		dataFnv1aChecksum: sfEncoded.DataFnv1aChecksum(),
 		sourceSha1:        sfEncoded.SourceSha1(),
+		dataFnv1aChecksum: sfEncoded.DataFnv1aChecksum(),
 	}
 
 	return sf, nil
 }
 
+// TouchUpdatedTime bumps the updated-time field.
+func (sf *SeriesFooter1) TouchUpdatedTime() {
+	sf.updatedTime = time.Now().UTC()
+	sf.updatedTime = sf.updatedTime.Add(-time.Nanosecond * time.Duration(sf.updatedTime.Nanosecond()))
+}
+
 func (sf *SeriesFooter1) String() string {
-	return fmt.Sprintf("SeriesFooter1<UUID=[%s] HEAD=[%s] TAIL=[%s] BYTES=(%d) COUNT=(%d) FILENAME=[%s] CHECKSUM=(%d) SOURCE-SHA1=[%20x]>",
+	return fmt.Sprintf("SeriesFooter1<UUID=[%s] HEAD=[%s] TAIL=[%s] BYTES=(%d) COUNT=(%d) CREATED-AT=[%v] UPDATED-AT=[%v] SOURCE-SHA1=[%20x] CHECKSUM=(%d)>",
 		sf.uuid,
 		sf.headRecordTime,
 		sf.tailRecordTime,
 		sf.bytesLength,
 		sf.recordCount,
-		sf.originalFilename,
-		sf.dataFnv1aChecksum,
-		sf.sourceSha1)
+		sf.createdTime,
+		sf.updatedTime,
+		sf.sourceSha1,
+		sf.dataFnv1aChecksum)
 }
 
 // Version returns the series-protocol represented by this struct.
@@ -129,9 +146,14 @@ func (sf *SeriesFooter1) RecordCount() uint64 {
 	return sf.recordCount
 }
 
-// OriginalFilename is the optional filename of the original data.
-func (sf *SeriesFooter1) OriginalFilename() string {
-	return sf.originalFilename
+// CreatedTime is the timestamp of the first write of this series
+func (sf *SeriesFooter1) CreatedTime() time.Time {
+	return sf.createdTime
+}
+
+// UpdatedTime is the timestamp of the last update
+func (sf *SeriesFooter1) UpdatedTime() time.Time {
+	return sf.updatedTime
 }
 
 // SourceSha1 is the SHA1 of the original data.
@@ -158,7 +180,6 @@ func (sw *StreamWriter) writeSeriesFooter1(sf SeriesFooter, fnvChecksum uint32) 
 	sw.b.Reset()
 
 	uuidPosition := sw.b.CreateString(sf.Uuid())
-	filenamePosition := sw.b.CreateString(sf.OriginalFilename())
 	sha1Position := sw.b.CreateByteString(sf.SourceSha1())
 
 	ttgstream.SeriesFooter1Start(sw.b)
@@ -167,7 +188,8 @@ func (sw *StreamWriter) writeSeriesFooter1(sf SeriesFooter, fnvChecksum uint32) 
 	ttgstream.SeriesFooter1AddTailRecordEpoch(sw.b, uint64(sf.TailRecordTime().Unix()))
 	ttgstream.SeriesFooter1AddBytesLength(sw.b, sf.BytesLength())
 	ttgstream.SeriesFooter1AddRecordCount(sw.b, sf.RecordCount())
-	ttgstream.SeriesFooter1AddOriginalFilename(sw.b, filenamePosition)
+	ttgstream.SeriesFooter1AddCreatedEpoch(sw.b, uint64(sf.CreatedTime().Unix()))
+	ttgstream.SeriesFooter1AddUpdatedEpoch(sw.b, uint64(sf.UpdatedTime().Unix()))
 	ttgstream.SeriesFooter1AddSourceSha1(sw.b, sha1Position)
 	ttgstream.SeriesFooter1AddDataFnv1aChecksum(sw.b, fnvChecksum)
 	sfPosition := ttgstream.SeriesFooter1End(sw.b)

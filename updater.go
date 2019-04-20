@@ -164,6 +164,8 @@ func (updater *Updater) appendNewSeries(seriesFooter SeriesFooter) (err error) {
 
 	updaterLogger.Debugf(nil, "appendNewSeries: Adding new series [%s].", seriesFooter.Uuid())
 
+	seriesFooter.TouchUpdatedTime()
+
 	err = updater.sb.AddSeries(updater.seriesDataWriter, seriesFooter)
 	log.PanicIf(err)
 

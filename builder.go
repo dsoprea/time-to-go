@@ -239,8 +239,6 @@ func (sb *StreamBuilder) Finish() (totalSize int, err error) {
 		}
 	}()
 
-	// TODO(dustin): !! Update stream-footer to have create-time and last-update time.
-
 	footerSize, err := sb.sw.writeStreamFooterWithSeriesFooters(sb.series, sb.offsets)
 	log.PanicIf(err)
 

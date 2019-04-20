@@ -10,9 +10,6 @@ table StreamIndexedSequenceInfo {
 	// The timestamp of the last record
 	tailRecordEpoch:ulong;
 
-	// The filename of the source-data
-	originalFilename:string;
-
 	// Absolute position of the boundary marker (NUL)
 	absolutePosition:long;
 }

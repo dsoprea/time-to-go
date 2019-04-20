@@ -36,7 +36,6 @@ func WriteTestStreamWithDatasource() (raw []byte, originalSeriesFooter *SeriesFo
 		tailRecordTime,
 		uint64(len(TestTimeSeriesData)),
 		22,
-		"some_filename",
 		sourceSha1)
 
 	dataReader := bytes.NewBuffer(TestTimeSeriesData)
@@ -52,7 +51,7 @@ func WriteTestStreamWithDatasource() (raw []byte, originalSeriesFooter *SeriesFo
 
 	raw = b.Bytes()
 
-	if len(raw) != 337 {
+	if len(raw) != 297 {
 		log.Panicf("encoded data is not the right size: (%d)", len(raw))
 	} else if totalSize != len(raw) {
 		log.Panicf("Stream components are not the right size: SERIES-SIZE=(%d) STREAM-SIZE=(%d)", totalSize, len(raw))
@@ -85,7 +84,6 @@ func WriteTestStreamWithReader() (raw []byte, originalSeriesFooter *SeriesFooter
 		tailRecordTime,
 		uint64(len(TestTimeSeriesData)),
 		22,
-		"some_filename",
 		sourceSha1)
 
 	dataReader := bytes.NewBuffer(TestTimeSeriesData)
@@ -100,7 +98,7 @@ func WriteTestStreamWithReader() (raw []byte, originalSeriesFooter *SeriesFooter
 
 	raw = b.Bytes()
 
-	if len(raw) != 337 {
+	if len(raw) != 297 {
 		log.Panicf("encoded data is not the right size: (%d)", len(raw))
 	} else if totalSize != len(raw) {
 		log.Panicf("Stream components are not the right size: SERIES-SIZE=(%d) STREAM-SIZE=(%d)", totalSize, len(raw))
@@ -146,6 +144,8 @@ func TestBuilder_Finish_Reader(t *testing.T) {
 
 	recoveredSeriesFooter := recoveredSeriesFooterInterface.(*SeriesFooter1)
 
+	originalSeriesFooter.createdTime = recoveredSeriesFooter.createdTime
+	originalSeriesFooter.updatedTime = recoveredSeriesFooter.updatedTime
 	originalSeriesFooter.dataFnv1aChecksum = 4023719413
 
 	if reflect.DeepEqual(recoveredSeriesFooter, originalSeriesFooter) != true {
@@ -209,6 +209,8 @@ func TestBuilder_Finish_Datasource(t *testing.T) {
 
 	recoveredSeriesFooter := recoveredSeriesFooterInterface.(*SeriesFooter1)
 
+	originalSeriesFooter.createdTime = recoveredSeriesFooter.createdTime
+	originalSeriesFooter.updatedTime = recoveredSeriesFooter.updatedTime
 	originalSeriesFooter.dataFnv1aChecksum = 4023719413
 
 	if reflect.DeepEqual(recoveredSeriesFooter, originalSeriesFooter) != true {
@@ -268,7 +270,6 @@ func ExampleStreamBuilder_AddSeries_Reader() {
 		tailRecordTime,
 		uint64(len(TestTimeSeriesData)),
 		22,
-		"some_filename",
 		sourceSha1)
 
 	// Force a specific UUID so we know what to expect below.
@@ -292,7 +293,6 @@ func ExampleStreamBuilder_AddSeries_Reader() {
 		tailRecordTime.Add(time.Second*10),
 		uint64(len(TestTimeSeriesData2)),
 		33,
-		"some_filename2",
 		sourceSha12)
 
 	// Force a specific UUID so we know what to expect below.
@@ -318,15 +318,15 @@ func ExampleStreamBuilder_AddSeries_Reader() {
 	//
 	// OFF 0        MT series_data_head_byte           SCOPE series   UUID ca38f9e3-bdea-4bc8-9a8a-22681ea815b0      COMM
 	// OFF 21       MT series_footer_head_byte         SCOPE series   UUID ca38f9e3-bdea-4bc8-9a8a-22681ea815b0      COMM
-	// OFF 173      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
-	// OFF 178      MT boundary_marker                 SCOPE series   UUID                                           COMM
-	// OFF 179      MT series_data_head_byte           SCOPE series   UUID 1616bda4-c570-4d05-a346-674e4c051460      COMM
-	// OFF 206      MT series_footer_head_byte         SCOPE series   UUID 1616bda4-c570-4d05-a346-674e4c051460      COMM
-	// OFF 358      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
-	// OFF 363      MT boundary_marker                 SCOPE series   UUID                                           COMM
-	// OFF 364      MT stream_footer_head_byte         SCOPE stream   UUID                                           COMM Stream: StreamFooter1<COUNT=(2)>
-	// OFF 628      MT shadow_footer_head_byte         SCOPE stream   UUID                                           COMM
-	// OFF 633      MT boundary_marker                 SCOPE stream   UUID                                           COMM
+	// OFF 165      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
+	// OFF 170      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	// OFF 171      MT series_data_head_byte           SCOPE series   UUID 1616bda4-c570-4d05-a346-674e4c051460      COMM
+	// OFF 198      MT series_footer_head_byte         SCOPE series   UUID 1616bda4-c570-4d05-a346-674e4c051460      COMM
+	// OFF 342      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
+	// OFF 347      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	// OFF 348      MT stream_footer_head_byte         SCOPE stream   UUID                                           COMM Stream: StreamFooter1<COUNT=(2)>
+	// OFF 548      MT shadow_footer_head_byte         SCOPE stream   UUID                                           COMM
+	// OFF 553      MT boundary_marker                 SCOPE stream   UUID                                           COMM
 }
 
 // ExampleStreamBuilder_AddSeries_Datasource shows us to build and write a
@@ -363,7 +363,6 @@ func ExampleStreamBuilder_AddSeries_Datasource() {
 		tailRecordTime,
 		uint64(len(TestTimeSeriesData)),
 		22,
-		"some_filename",
 		sourceSha1)
 
 	// Force a specific UUID so we know what to expect below.
@@ -388,7 +387,6 @@ func ExampleStreamBuilder_AddSeries_Datasource() {
 		tailRecordTime.Add(time.Second*10),
 		uint64(len(TestTimeSeriesData2)),
 		33,
-		"some_filename2",
 		sourceSha12)
 
 	// Force a specific UUID so we know what to expect below.
@@ -414,13 +412,13 @@ func ExampleStreamBuilder_AddSeries_Datasource() {
 	//
 	// OFF 0        MT series_data_head_byte           SCOPE series   UUID ca38f9e3-bdea-4bc8-9a8a-22681ea815b0      COMM
 	// OFF 21       MT series_footer_head_byte         SCOPE series   UUID ca38f9e3-bdea-4bc8-9a8a-22681ea815b0      COMM
-	// OFF 173      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
-	// OFF 178      MT boundary_marker                 SCOPE series   UUID                                           COMM
-	// OFF 179      MT series_data_head_byte           SCOPE series   UUID 1616bda4-c570-4d05-a346-674e4c051460      COMM
-	// OFF 206      MT series_footer_head_byte         SCOPE series   UUID 1616bda4-c570-4d05-a346-674e4c051460      COMM
-	// OFF 358      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
-	// OFF 363      MT boundary_marker                 SCOPE series   UUID                                           COMM
-	// OFF 364      MT stream_footer_head_byte         SCOPE stream   UUID                                           COMM Stream: StreamFooter1<COUNT=(2)>
-	// OFF 628      MT shadow_footer_head_byte         SCOPE stream   UUID                                           COMM
-	// OFF 633      MT boundary_marker                 SCOPE stream   UUID                                           COMM
+	// OFF 165      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
+	// OFF 170      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	// OFF 171      MT series_data_head_byte           SCOPE series   UUID 1616bda4-c570-4d05-a346-674e4c051460      COMM
+	// OFF 198      MT series_footer_head_byte         SCOPE series   UUID 1616bda4-c570-4d05-a346-674e4c051460      COMM
+	// OFF 342      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
+	// OFF 347      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	// OFF 348      MT stream_footer_head_byte         SCOPE stream   UUID                                           COMM Stream: StreamFooter1<COUNT=(2)>
+	// OFF 548      MT shadow_footer_head_byte         SCOPE stream   UUID                                           COMM
+	// OFF 553      MT boundary_marker                 SCOPE stream   UUID                                           COMM
 }

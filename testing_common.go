@@ -85,7 +85,6 @@ func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1, sb *Str
 		tailRecordTime,
 		uint64(len(TestTimeSeriesData)),
 		22,
-		"some_filename",
 		sourceSha1)
 
 	dataReader1 := bytes.NewBuffer(TestTimeSeriesData)
@@ -95,7 +94,7 @@ func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1, sb *Str
 
 	seriesSize1 := sb.nextOffset
 
-	if seriesSize1 != 179 {
+	if seriesSize1 != 171 {
 		log.Panicf("first series size not correct: (%d)", seriesSize1)
 	}
 
@@ -112,7 +111,6 @@ func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1, sb *Str
 		tailRecordTime.Add(time.Second*10),
 		uint64(len(TestTimeSeriesData2)),
 		33,
-		"some_filename2",
 		sourceSha12)
 
 	dataReader2 := bytes.NewBuffer(TestTimeSeriesData2)
@@ -122,7 +120,7 @@ func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1, sb *Str
 
 	seriesSize2 := sb.nextOffset
 
-	if seriesSize2 != 364 {
+	if seriesSize2 != 348 {
 		log.Panicf("second series size not correct: (%d)", seriesSize2)
 	}
 
@@ -133,7 +131,7 @@ func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1, sb *Str
 
 	raw = b.Bytes()
 
-	if len(raw) != 634 {
+	if len(raw) != 554 {
 		log.Panicf("stream data is not the right size: (%d)", len(raw))
 	}
 
@@ -150,12 +148,12 @@ func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1, sb *Str
 	}
 
 	boundaryOffset := milestones[0].Offset
-	if boundaryOffset != 178 {
+	if boundaryOffset != 170 {
 		log.Panicf("first boundary offset not correct: (%d)", boundaryOffset)
 	}
 
 	boundaryOffset = milestones[1].Offset
-	if boundaryOffset != 363 {
+	if boundaryOffset != 347 {
 		log.Panicf("second boundary offset not correct: (%d)", boundaryOffset)
 	}
 
@@ -188,7 +186,6 @@ func AddTestSeries(sb *StreamBuilder) (footers []*SeriesFooter1) {
 		tailRecordTime,
 		uint64(len(TestTimeSeriesData)),
 		22,
-		"some_filename",
 		sourceSha1)
 
 	// Force a specific UUID so we know the exact output in support of the
@@ -213,7 +210,6 @@ func AddTestSeries(sb *StreamBuilder) (footers []*SeriesFooter1) {
 		tailRecordTime.Add(time.Second*10),
 		uint64(len(TestTimeSeriesData2)),
 		33,
-		"some_filename2",
 		sourceSha12)
 
 	// Force a specific UUID so we know the exact output in support of the

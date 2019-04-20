@@ -25,20 +25,16 @@ type StreamIndexedSequenceInfo1 struct {
 	// tailRecordTime is the timestamp of the last record
 	tailRecordTime time.Time
 
-	// originalFilename is the filename of the source-data
-	originalFilename string
-
 	// absolutePosition is the absolute position of the boundary marker (NUL)
 	absolutePosition int64
 }
 
 // NewStreamIndexedSequenceInfo1 returns a sequence-info structure.
-func NewStreamIndexedSequenceInfo1(uuid string, headRecordTime, tailRecordTime time.Time, originalFilename string, absolutePosition int64) *StreamIndexedSequenceInfo1 {
+func NewStreamIndexedSequenceInfo1(uuid string, headRecordTime, tailRecordTime time.Time, absolutePosition int64) *StreamIndexedSequenceInfo1 {
 	return &StreamIndexedSequenceInfo1{
 		uuid:             uuid,
 		headRecordTime:   headRecordTime.UTC(),
 		tailRecordTime:   tailRecordTime.UTC(),
-		originalFilename: originalFilename,
 		absolutePosition: absolutePosition,
 	}
 }
@@ -51,7 +47,6 @@ func NewStreamIndexedSequenceInfo1WithSeriesFooter(seriesFooter SeriesFooter, ab
 		uuid:             seriesFooter.Uuid(),
 		headRecordTime:   seriesFooter.HeadRecordTime().UTC(),
 		tailRecordTime:   seriesFooter.TailRecordTime().UTC(),
-		originalFilename: seriesFooter.OriginalFilename(),
 		absolutePosition: absolutePosition,
 	}
 }
@@ -71,18 +66,13 @@ func (sisi StreamIndexedSequenceInfo1) TailRecordTime() time.Time {
 	return sisi.tailRecordTime
 }
 
-// OriginalFilename is the filename of the source-data
-func (sisi StreamIndexedSequenceInfo1) OriginalFilename() string {
-	return sisi.originalFilename
-}
-
 // AbsolutePosition is the absolute position of the boundary marker (NUL)
 func (sisi StreamIndexedSequenceInfo1) AbsolutePosition() int64 {
 	return sisi.absolutePosition
 }
 
 func (sisi StreamIndexedSequenceInfo1) String() string {
-	return fmt.Sprintf("StreamIndexedSequenceInfo1<UUID=[%s] HEAD=[%s] TAIL=[%s] FILENAME=[%s] POSITION=(%d)", sisi.uuid, sisi.headRecordTime, sisi.tailRecordTime, sisi.originalFilename, sisi.absolutePosition)
+	return fmt.Sprintf("StreamIndexedSequenceInfo1<UUID=[%s] HEAD=[%s] TAIL=[%s] POSITION=(%d)", sisi.uuid, sisi.headRecordTime, sisi.tailRecordTime, sisi.absolutePosition)
 }
 
 // writeStreamFooter writes a block of data that describes the entire stream.
@@ -102,13 +92,11 @@ func (sw *StreamWriter) writeStreamFooter(streamFooter StreamFooter) (size int, 
 	sisiOffsets := make([]flatbuffers.UOffsetT, len(sequences))
 	for i, sisi := range sequences {
 		uuidPosition := sw.b.CreateString(sisi.Uuid())
-		filenamePosition := sw.b.CreateString(sisi.OriginalFilename())
 
 		ttgstream.StreamIndexedSequenceInfoStart(sw.b)
 		ttgstream.StreamIndexedSequenceInfoAddUuid(sw.b, uuidPosition)
 		ttgstream.StreamIndexedSequenceInfoAddHeadRecordEpoch(sw.b, uint64(sisi.HeadRecordTime().Unix()))
 		ttgstream.StreamIndexedSequenceInfoAddTailRecordEpoch(sw.b, uint64(sisi.TailRecordTime().Unix()))
-		ttgstream.StreamIndexedSequenceInfoAddOriginalFilename(sw.b, filenamePosition)
 		ttgstream.StreamIndexedSequenceInfoAddAbsolutePosition(sw.b, sisi.AbsolutePosition())
 
 		sisiOffset := ttgstream.StreamIndexedSequenceInfoEnd(sw.b)
@@ -233,7 +221,6 @@ func NewStreamFooter1FromEncoded(footerBytes []byte) (sf StreamFooter, err error
 			uuid:             string(sisiEncoded.Uuid()),
 			headRecordTime:   headRecordTime,
 			tailRecordTime:   tailRecordTime,
-			originalFilename: string(sisiEncoded.OriginalFilename()),
 			absolutePosition: sisiEncoded.AbsolutePosition(),
 		}
 

@@ -37,7 +37,7 @@ func TestStream__Protocol1(t *testing.T) {
 
 	raw := sb.Bytes()
 
-	if len(raw) != 353 {
+	if len(raw) != 313 {
 		t.Fatalf("Encoded data is not the right size: (%d)", len(raw))
 	} else if seriesSize+streamSize != len(raw) {
 		t.Fatalf("Stream components are not the right size: SERIES-SIZE=(%d) STREAM-SIZE=(%d)", seriesSize, streamSize)
@@ -83,6 +83,8 @@ func TestStream__Protocol1(t *testing.T) {
 
 	seriesFooter := sfRecoveredInterface.(*SeriesFooter1)
 
+	testSeriesFooter.createdTime = seriesFooter.createdTime
+	testSeriesFooter.updatedTime = seriesFooter.updatedTime
 	testSeriesFooter.dataFnv1aChecksum = 305419896
 
 	if reflect.DeepEqual(seriesFooter, testSeriesFooter) != true {

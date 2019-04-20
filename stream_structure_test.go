@@ -38,13 +38,13 @@ func ExampleStreamStructure_Dump() {
 	//
 	// OFF 0        MT series_data_head_byte           SCOPE series   UUID d095abf5-126e-48a7-8974-885de92bd964      COMM
 	// OFF 21       MT series_footer_head_byte         SCOPE series   UUID d095abf5-126e-48a7-8974-885de92bd964      COMM
-	// OFF 173      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
-	// OFF 178      MT boundary_marker                 SCOPE series   UUID                                           COMM
-	// OFF 179      MT series_data_head_byte           SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
-	// OFF 206      MT series_footer_head_byte         SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
-	// OFF 358      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
-	// OFF 363      MT boundary_marker                 SCOPE series   UUID                                           COMM
-	// OFF 364      MT stream_footer_head_byte         SCOPE stream   UUID                                           COMM Stream: StreamFooter1<COUNT=(2)>
-	// OFF 628      MT shadow_footer_head_byte         SCOPE stream   UUID                                           COMM
-	// OFF 633      MT boundary_marker                 SCOPE stream   UUID                                           COMM
+	// OFF 165      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
+	// OFF 170      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	// OFF 171      MT series_data_head_byte           SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
+	// OFF 198      MT series_footer_head_byte         SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
+	// OFF 342      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
+	// OFF 347      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	// OFF 348      MT stream_footer_head_byte         SCOPE stream   UUID                                           COMM Stream: StreamFooter1<COUNT=(2)>
+	// OFF 548      MT shadow_footer_head_byte         SCOPE stream   UUID                                           COMM
+	// OFF 553      MT boundary_marker                 SCOPE stream   UUID                                           COMM
 }

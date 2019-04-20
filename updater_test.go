@@ -30,7 +30,7 @@ func TestUpdater_AddSeries_NoChange(t *testing.T) {
 
 	if stats != expectedStats {
 		t.Fatalf("Stats not correct: %s", stats)
-	} else if totalSize != 634 {
+	} else if totalSize != 554 {
 		t.Fatalf("Total stream size not correct: (%d)", totalSize)
 	}
 
@@ -51,6 +51,8 @@ func TestUpdater_AddSeries_NoChange(t *testing.T) {
 
 	if seriesFooter2.Uuid() != series[1].Uuid() {
 		t.Fatalf("First encountered series is not correct.")
+	} else if seriesFooter2.UpdatedTime() != series[1].UpdatedTime() {
+		t.Fatalf("First encountered series has an updated timestamp but shouldn't: [%v] != [%v]", seriesFooter2.UpdatedTime(), series[1].UpdatedTime())
 	}
 
 	seriesFooter1, _, err := it.Iterate(nil)
@@ -58,6 +60,8 @@ func TestUpdater_AddSeries_NoChange(t *testing.T) {
 
 	if seriesFooter1.Uuid() != series[0].Uuid() {
 		t.Fatalf("Second encountered series is not correct.")
+	} else if seriesFooter1.UpdatedTime() != series[0].UpdatedTime() {
+		t.Fatalf("First encountered series has an updated timestamp but shouldn't: [%v] != [%v]", seriesFooter1.UpdatedTime(), series[0].UpdatedTime())
 	}
 }
 
@@ -95,7 +99,6 @@ func TestUpdater_AddSeries_AddNew(t *testing.T) {
 		now.Add(time.Second*20),
 		uint64(len(TestTimeSeriesData2)),
 		33,
-		"some_filename3",
 		sourceSha13)
 
 	dataReader3 := bytes.NewBuffer(TestTimeSeriesData2)
@@ -111,9 +114,23 @@ func TestUpdater_AddSeries_AddNew(t *testing.T) {
 	updater := NewUpdater(rws, sdtg)
 	updater.SetStructureLogging(true)
 
+	series0UpdatedTime := series[0].UpdatedTime()
+	series1UpdatedTime := series[1].UpdatedTime()
+	series2UpdatedTime := sf3.UpdatedTime()
+
 	updater.AddSeries(series[0])
 	updater.AddSeries(series[1])
 	updater.AddSeries(sf3)
+
+	if series[0].UpdatedTime() != series0UpdatedTime {
+		t.Fatalf("Series 0 update time changed but shouldn't have.")
+	} else if series[1].UpdatedTime() != series1UpdatedTime {
+		t.Fatalf("Series 1 update time changed but shouldn't have.")
+	} else if sf3.UpdatedTime() != series2UpdatedTime {
+		t.Fatalf("Series 2 update time changed but shouldn't have.")
+	}
+
+	time.Sleep(time.Second * 1)
 
 	totalSize, stats, err := updater.Write()
 	log.PanicIf(err)
@@ -123,9 +140,17 @@ func TestUpdater_AddSeries_AddNew(t *testing.T) {
 		Adds:  1,
 	}
 
+	if series[0].UpdatedTime() != series0UpdatedTime {
+		t.Fatalf("Series 0 update time changed but shouldn't have.")
+	} else if series[1].UpdatedTime() != series1UpdatedTime {
+		t.Fatalf("Series 1 update time changed but shouldn't have.")
+	} else if sf3.UpdatedTime().After(series2UpdatedTime) != true {
+		t.Fatalf("Series 2 update time SHOULD HAVE been bumped but wasn't: [%v] != [%v]", sf3.UpdatedTime(), series2UpdatedTime)
+	}
+
 	if stats != expectedStats {
 		t.Fatalf("Stats not correct: %s", stats)
-	} else if totalSize != 939 {
+	} else if totalSize != 827 {
 		t.Fatalf("Total stream size not correct: (%d)", totalSize)
 	}
 
@@ -242,7 +267,7 @@ func TestUpdater_AddSeries__DropOne(t *testing.T) {
 
 	if stats != expectedStats {
 		t.Fatalf("Stats not correct: %s", stats)
-	} else if totalSize != 337 {
+	} else if totalSize != 297 {
 		t.Fatalf("Total stream size not correct: (%d)", totalSize)
 	}
 
@@ -301,7 +326,7 @@ func TestUpdater_AddSeries__CopyForward(t *testing.T) {
 
 	if stats != expectedStats {
 		t.Fatalf("Stats not correct: %s", stats)
-	} else if totalSize != 343 {
+	} else if totalSize != 303 {
 		t.Fatalf("Total stream size not correct: (%d)", totalSize)
 	}
 
@@ -371,7 +396,6 @@ func ExampleUpdater_AddSeries() {
 		now.Add(time.Second*30),
 		uint64(len(TestTimeSeriesData2)),
 		33,
-		"some_filename3",
 		sourceSha13)
 
 	// Force a specific UUID so we know the exact output in support of the
@@ -422,52 +446,52 @@ func ExampleUpdater_AddSeries() {
 
 	// Output:
 	// Original:
-	//
+
 	// ================
 	// Stream Structure
 	// ================
-	//
+
 	// OFF 0        MT series_data_head_byte           SCOPE series   UUID d095abf5-126e-48a7-8974-885de92bd964      COMM
 	// OFF 21       MT series_footer_head_byte         SCOPE series   UUID d095abf5-126e-48a7-8974-885de92bd964      COMM
-	// OFF 173      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
-	// OFF 178      MT boundary_marker                 SCOPE series   UUID                                           COMM
-	// OFF 179      MT series_data_head_byte           SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
-	// OFF 206      MT series_footer_head_byte         SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
-	// OFF 358      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
-	// OFF 363      MT boundary_marker                 SCOPE series   UUID                                           COMM
-	// OFF 364      MT stream_footer_head_byte         SCOPE stream   UUID                                           COMM Stream: StreamFooter1<COUNT=(2)>
-	// OFF 628      MT shadow_footer_head_byte         SCOPE stream   UUID                                           COMM
-	// OFF 633      MT boundary_marker                 SCOPE stream   UUID                                           COMM
-	//
+	// OFF 149      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
+	// OFF 154      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	// OFF 155      MT series_data_head_byte           SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
+	// OFF 182      MT series_footer_head_byte         SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
+	// OFF 310      MT shadow_footer_head_byte         SCOPE series   UUID                                           COMM
+	// OFF 315      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	// OFF 316      MT stream_footer_head_byte         SCOPE stream   UUID                                           COMM Stream: StreamFooter1<COUNT=(2)>
+	// OFF 516      MT shadow_footer_head_byte         SCOPE stream   UUID                                           COMM
+	// OFF 521      MT boundary_marker                 SCOPE stream   UUID                                           COMM
+
 	// Updated:
-	//
+
 	// ================
 	// Stream Structure
 	// ================
-	//
-	// OFF 938      MT boundary_marker                 SCOPE stream   UUID                                           COMM
+
+	// OFF 778      MT boundary_marker                 SCOPE stream   UUID                                           COMM
 	//              MT boundary_marker                 SCOPE misc     UUID                                           COMM
-	// OFF 933      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
-	// OFF 549      MT footer_head_byte                SCOPE misc     UUID                                           COMM
+	// OFF 773      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
+	// OFF 477      MT footer_head_byte                SCOPE misc     UUID                                           COMM
 	//              MT stream_footer_head_byte         SCOPE stream   UUID                                           COMM
 	//              MT stream_footer_decoded           SCOPE stream   UUID                                           COMM Stream: StreamFooter1<COUNT=(3)>
-	// OFF 548      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	// OFF 476      MT boundary_marker                 SCOPE series   UUID                                           COMM
 	//              MT boundary_marker                 SCOPE misc     UUID                                           COMM
-	// OFF 543      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
-	// OFF 391      MT footer_head_byte                SCOPE misc     UUID                                           COMM
+	// OFF 471      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
+	// OFF 343      MT footer_head_byte                SCOPE misc     UUID                                           COMM
 	//              MT series_footer_head_byte         SCOPE series   UUID                                           COMM
 	//              MT series_footer_decoded           SCOPE series   UUID 9a0e2d13-d14f-4a57-b43c-24bd3de6581e      COMM
-	// OFF 364      MT series_data_head_byte           SCOPE series   UUID 9a0e2d13-d14f-4a57-b43c-24bd3de6581e      COMM
-	// OFF 363      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	// OFF 316      MT series_data_head_byte           SCOPE series   UUID 9a0e2d13-d14f-4a57-b43c-24bd3de6581e      COMM
+	// OFF 315      MT boundary_marker                 SCOPE series   UUID                                           COMM
 	//              MT boundary_marker                 SCOPE misc     UUID                                           COMM
-	// OFF 358      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
-	// OFF 206      MT footer_head_byte                SCOPE misc     UUID                                           COMM
+	// OFF 310      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
+	// OFF 182      MT footer_head_byte                SCOPE misc     UUID                                           COMM
 	//              MT series_footer_head_byte         SCOPE series   UUID                                           COMM
 	//              MT series_footer_decoded           SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
-	// OFF 179      MT series_data_head_byte           SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
-	// OFF 178      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	// OFF 155      MT series_data_head_byte           SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
+	// OFF 154      MT boundary_marker                 SCOPE series   UUID                                           COMM
 	//              MT boundary_marker                 SCOPE misc     UUID                                           COMM
-	// OFF 173      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
+	// OFF 149      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
 	// OFF 21       MT footer_head_byte                SCOPE misc     UUID                                           COMM
 	//              MT series_footer_head_byte         SCOPE series   UUID                                           COMM
 	//              MT series_footer_decoded           SCOPE series   UUID d095abf5-126e-48a7-8974-885de92bd964      COMM
@@ -488,7 +512,6 @@ func TestUpdater_AddSeries_FromEmpty(t *testing.T) {
 		now.Add(time.Second*20),
 		uint64(len(TestTimeSeriesData2)),
 		33,
-		"some_filename3",
 		sourceSha13)
 
 	dataReader1 := bytes.NewBuffer(TestTimeSeriesData2)
@@ -514,7 +537,7 @@ func TestUpdater_AddSeries_FromEmpty(t *testing.T) {
 
 	if stats != expectedStats {
 		t.Fatalf("Stats not correct: %s", stats)
-	} else if totalSize != 343 {
+	} else if totalSize != 303 {
 		t.Fatalf("Total stream size not correct: (%d)", totalSize)
 	}
 

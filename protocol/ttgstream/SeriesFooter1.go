@@ -82,16 +82,32 @@ func (rcv *SeriesFooter1) MutateRecordCount(n uint64) bool {
 	return rcv._tab.MutateUint64Slot(12, n)
 }
 
-func (rcv *SeriesFooter1) OriginalFilename() []byte {
+func (rcv *SeriesFooter1) CreatedEpoch() uint64 {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(14))
 	if o != 0 {
-		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+		return rcv._tab.GetUint64(o + rcv._tab.Pos)
 	}
-	return nil
+	return 0
+}
+
+func (rcv *SeriesFooter1) MutateCreatedEpoch(n uint64) bool {
+	return rcv._tab.MutateUint64Slot(14, n)
+}
+
+func (rcv *SeriesFooter1) UpdatedEpoch() uint64 {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(16))
+	if o != 0 {
+		return rcv._tab.GetUint64(o + rcv._tab.Pos)
+	}
+	return 0
+}
+
+func (rcv *SeriesFooter1) MutateUpdatedEpoch(n uint64) bool {
+	return rcv._tab.MutateUint64Slot(16, n)
 }
 
 func (rcv *SeriesFooter1) SourceSha1() []byte {
-	o := flatbuffers.UOffsetT(rcv._tab.Offset(16))
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(18))
 	if o != 0 {
 		return rcv._tab.ByteVector(o + rcv._tab.Pos)
 	}
@@ -99,7 +115,7 @@ func (rcv *SeriesFooter1) SourceSha1() []byte {
 }
 
 func (rcv *SeriesFooter1) DataFnv1aChecksum() uint32 {
-	o := flatbuffers.UOffsetT(rcv._tab.Offset(18))
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(20))
 	if o != 0 {
 		return rcv._tab.GetUint32(o + rcv._tab.Pos)
 	}
@@ -107,11 +123,11 @@ func (rcv *SeriesFooter1) DataFnv1aChecksum() uint32 {
 }
 
 func (rcv *SeriesFooter1) MutateDataFnv1aChecksum(n uint32) bool {
-	return rcv._tab.MutateUint32Slot(18, n)
+	return rcv._tab.MutateUint32Slot(20, n)
 }
 
 func SeriesFooter1Start(builder *flatbuffers.Builder) {
-	builder.StartObject(8)
+	builder.StartObject(9)
 }
 func SeriesFooter1AddUuid(builder *flatbuffers.Builder, uuid flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(0, flatbuffers.UOffsetT(uuid), 0)
@@ -128,14 +144,17 @@ func SeriesFooter1AddBytesLength(builder *flatbuffers.Builder, bytesLength uint6
 func SeriesFooter1AddRecordCount(builder *flatbuffers.Builder, recordCount uint64) {
 	builder.PrependUint64Slot(4, recordCount, 0)
 }
-func SeriesFooter1AddOriginalFilename(builder *flatbuffers.Builder, originalFilename flatbuffers.UOffsetT) {
-	builder.PrependUOffsetTSlot(5, flatbuffers.UOffsetT(originalFilename), 0)
+func SeriesFooter1AddCreatedEpoch(builder *flatbuffers.Builder, createdEpoch uint64) {
+	builder.PrependUint64Slot(5, createdEpoch, 0)
+}
+func SeriesFooter1AddUpdatedEpoch(builder *flatbuffers.Builder, updatedEpoch uint64) {
+	builder.PrependUint64Slot(6, updatedEpoch, 0)
 }
 func SeriesFooter1AddSourceSha1(builder *flatbuffers.Builder, sourceSha1 flatbuffers.UOffsetT) {
-	builder.PrependUOffsetTSlot(6, flatbuffers.UOffsetT(sourceSha1), 0)
+	builder.PrependUOffsetTSlot(7, flatbuffers.UOffsetT(sourceSha1), 0)
 }
 func SeriesFooter1AddDataFnv1aChecksum(builder *flatbuffers.Builder, dataFnv1aChecksum uint32) {
-	builder.PrependUint32Slot(7, dataFnv1aChecksum, 0)
+	builder.PrependUint32Slot(8, dataFnv1aChecksum, 0)
 }
 func SeriesFooter1End(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()

@@ -67,6 +67,8 @@ func TestNewIterator_Iterate(t *testing.T) {
 
 	recoveredSeriesFooter2 := seriesFooterInterface2.(*SeriesFooter1)
 
+	originalFooters[1].createdTime = recoveredSeriesFooter2.createdTime
+	originalFooters[1].updatedTime = recoveredSeriesFooter2.updatedTime
 	originalFooters[1].dataFnv1aChecksum = 0xba7ac887
 
 	if reflect.DeepEqual(recoveredSeriesFooter2, originalFooters[1]) != true {
@@ -114,6 +116,8 @@ func TestNewIterator_Iterate(t *testing.T) {
 
 	recoveredSeriesFooter1 := seriesFooterInterface1.(*SeriesFooter1)
 
+	originalFooters[0].createdTime = recoveredSeriesFooter1.createdTime
+	originalFooters[0].updatedTime = recoveredSeriesFooter1.updatedTime
 	originalFooters[0].dataFnv1aChecksum = 0xefd515f5
 
 	if reflect.DeepEqual(recoveredSeriesFooter1, originalFooters[0]) != true {
@@ -254,22 +258,22 @@ func ExampleIterator_Iterate() {
 	// Stream Structure
 	// ================
 	//
-	// OFF 633      MT boundary_marker                 SCOPE stream   UUID                                           COMM
+	// OFF 553      MT boundary_marker                 SCOPE stream   UUID                                           COMM
 	//              MT boundary_marker                 SCOPE misc     UUID                                           COMM
-	// OFF 628      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
-	// OFF 364      MT footer_head_byte                SCOPE misc     UUID                                           COMM
+	// OFF 548      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
+	// OFF 348      MT footer_head_byte                SCOPE misc     UUID                                           COMM
 	//              MT stream_footer_head_byte         SCOPE stream   UUID                                           COMM
 	//              MT stream_footer_decoded           SCOPE stream   UUID                                           COMM Stream: StreamFooter1<COUNT=(2)>
-	// OFF 363      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	// OFF 347      MT boundary_marker                 SCOPE series   UUID                                           COMM
 	//              MT boundary_marker                 SCOPE misc     UUID                                           COMM
-	// OFF 358      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
-	// OFF 206      MT footer_head_byte                SCOPE misc     UUID                                           COMM
+	// OFF 342      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
+	// OFF 198      MT footer_head_byte                SCOPE misc     UUID                                           COMM
 	//              MT series_footer_head_byte         SCOPE series   UUID                                           COMM
 	//              MT series_footer_decoded           SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
-	// OFF 179      MT series_data_head_byte           SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
-	// OFF 178      MT boundary_marker                 SCOPE series   UUID                                           COMM
+	// OFF 171      MT series_data_head_byte           SCOPE series   UUID 8a4ba0c4-0a0d-442f-8256-1d61adb16abc      COMM
+	// OFF 170      MT boundary_marker                 SCOPE series   UUID                                           COMM
 	//              MT boundary_marker                 SCOPE misc     UUID                                           COMM
-	// OFF 173      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
+	// OFF 165      MT shadow_footer_head_byte         SCOPE misc     UUID                                           COMM
 	// OFF 21       MT footer_head_byte                SCOPE misc     UUID                                           COMM
 	//              MT series_footer_head_byte         SCOPE series   UUID                                           COMM
 	//              MT series_footer_decoded           SCOPE series   UUID d095abf5-126e-48a7-8974-885de92bd964      COMM

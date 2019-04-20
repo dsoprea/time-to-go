@@ -20,8 +20,11 @@ table SeriesFooter1 {
 	// The number of records in the list
 	recordCount:ulong;
 
-	// The filename of the source-data
-	originalFilename:string;
+	// The epoch when the series was first inserted.
+	createdEpoch:ulong;
+
+	// The epoch of the last time the data or the footer has changed.
+	updatedEpoch:ulong;
 
 	// SHA1 of the raw source-data; can be used to determine if the source-data has changed
 	sourceSha1:string;

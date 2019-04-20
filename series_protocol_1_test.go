@@ -35,7 +35,6 @@ func WriteTestSeriesFooter1(w io.Writer, sw *StreamWriter) (sfOriginal *SeriesFo
 			tailRecordTime,
 			uint64(len(TestTimeSeriesData)),
 			22,
-			"some_filename",
 			sourceSha1)
 
 	// Make sure we actually have a UUID.
@@ -47,7 +46,7 @@ func WriteTestSeriesFooter1(w io.Writer, sw *StreamWriter) (sfOriginal *SeriesFo
 
 	size = dataSize + footerSize
 
-	if size != 179 {
+	if size != 171 {
 		log.Panicf("Series footer was not the correct size: (%d)", size)
 	}
 
@@ -62,7 +61,7 @@ func TestStreamWriter__SeriesWriteAndRead(t *testing.T) {
 
 	raw := b.Bytes()
 
-	if len(raw) != 179 {
+	if len(raw) != 171 {
 		t.Fatalf("Encoded data is not the right size: (%d)", len(raw))
 	}
 
@@ -77,6 +76,9 @@ func TestStreamWriter__SeriesWriteAndRead(t *testing.T) {
 	log.PanicIf(err)
 
 	sfRecovered := sfRecoveredInterface.(*SeriesFooter1)
+
+	sfOriginal.createdTime = sfRecovered.createdTime
+	sfOriginal.updatedTime = sfRecovered.updatedTime
 	sfOriginal.dataFnv1aChecksum = 305419896
 
 	if reflect.DeepEqual(sfRecovered, sfOriginal) != true {

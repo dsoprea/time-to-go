@@ -17,14 +17,12 @@ func WriteTestStreamFooter1(sw *StreamWriter) ([]StreamIndexedSequenceInfo, int)
 		"uuid1",
 		now.Add(time.Hour*1),
 		now.Add(time.Hour*2),
-		"aa",
 		11)
 
 	isis2 := NewStreamIndexedSequenceInfo1(
 		"uuid2",
 		now.Add(time.Hour*3),
 		now.Add(time.Hour*4),
-		"bb",
 		22)
 
 	series := []StreamIndexedSequenceInfo{
@@ -37,7 +35,7 @@ func WriteTestStreamFooter1(sw *StreamWriter) ([]StreamIndexedSequenceInfo, int)
 	size, err := sw.writeStreamFooter(streamFooter)
 	log.PanicIf(err)
 
-	if size != 174 {
+	if size != 142 {
 		log.Panicf("Stream footer is not the right size: (%d)", size)
 	}
 
@@ -52,7 +50,7 @@ func TestStreamWriter__StreamWriteAndRead(t *testing.T) {
 
 	raw := b.Bytes()
 
-	if len(raw) != 174 {
+	if len(raw) != 142 {
 		t.Fatalf("Encoded data is not the right size: (%d)", len(raw))
 	}
 

@@ -58,8 +58,11 @@ type SeriesFooter interface {
 	// RecordCount is the number of records in the list
 	RecordCount() uint64
 
-	// OriginalFilename is the filename of the source-data
-	OriginalFilename() string
+	// CreatedTime is the timestamp of the first write of this series
+	CreatedTime() time.Time
+
+	// UpdatedTime is the timestamp of the last update
+	UpdatedTime() time.Time
 
 	// SourceSha1 is the SHA1 of the raw source-data; can be used to determine
 	// if the source-data has changed
@@ -70,6 +73,9 @@ type SeriesFooter interface {
 
 	// Version returns the version of the footer.
 	Version() SeriesFooterVersion
+
+	// TouchUpdatedTime sets the 'updated time' field to now.
+	TouchUpdatedTime()
 }
 
 // StreamIndexedSequenceInfo describes summary information for a single series
@@ -83,9 +89,6 @@ type StreamIndexedSequenceInfo interface {
 
 	// TailRecordTime is the timestamp of the last record
 	TailRecordTime() time.Time
-
-	// OriginalFilename is the filename of the source-data
-	OriginalFilename() string
 
 	// AbsolutePosition is the absolute position of the boundary marker (NUL)
 	AbsolutePosition() int64
