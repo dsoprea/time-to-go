@@ -56,41 +56,6 @@ func (sb *StreamBuilder) StreamWriter() *StreamWriter {
 	return sb.sw
 }
 
-// SeriesDataDatasource can be provided by the caller to write the series-data
-// themselves if an `io.Reader` is too simple for them.
-type SeriesDataDatasource interface {
-	WriteData(w io.Writer, sf SeriesFooter) (n int, err error)
-}
-
-// SeriesDataDatasourceWrapper wraps a simple `io.Reader` and satisfies the
-// `SeriesDataDatasource` interface. It essentially converts a reader to a
-// writer. This may not have a practical use, but we use it for testing.
-type SeriesDataDatasourceWrapper struct {
-	r io.Reader
-}
-
-// WriteData copies the reader to the writer.
-func (sddww SeriesDataDatasourceWrapper) WriteData(w io.Writer, sf SeriesFooter) (n int, err error) {
-	defer func() {
-		if state := recover(); state != nil {
-			err = log.Wrap(state.(error))
-		}
-	}()
-
-	count, err := io.Copy(w, sddww.r)
-	log.PanicIf(err)
-
-	return int(count), nil
-}
-
-// NewSeriesDataDatasourceWrapperFromReader creates a new
-// `SeriesDataDatasourceWrapper` struct.
-func NewSeriesDataDatasourceWrapperFromReader(r io.Reader) SeriesDataDatasourceWrapper {
-	return SeriesDataDatasourceWrapper{
-		r: r,
-	}
-}
-
 // AddSeries adds a single series and associated metadata to the stream. The
 // actual series data is provided to us by the caller in serialized (encoded)
 // form from whatever their original format was.
@@ -119,7 +84,7 @@ func (sb *StreamBuilder) AddSeries(seriesDataWriter interface{}, sf SeriesFooter
 
 	var copiedCount int
 	switch t := seriesDataWriter.(type) {
-	case SeriesDataDatasource:
+	case SeriesDataDatasourceWriter:
 		var err error
 		copiedCount, err = t.WriteData(teeWriter, sf)
 		log.PanicIf(err)

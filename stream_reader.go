@@ -9,6 +9,7 @@ import (
 	"hash/fnv"
 
 	"github.com/dsoprea/go-logging"
+	"github.com/randomingenuity/go-utility/crypto"
 )
 
 var (
@@ -331,7 +332,7 @@ func (sr *StreamReader) ReadSeriesInfoWithIndexedInfo(sisi StreamIndexedSequence
 // ReadSeriesWithIndexedInfo returns the `SeriesFooter` struct described by
 // the given `StreamIndexedSequenceInfo` struct and writes the raw data
 // associated with it to `dataWriter`.
-func (sr *StreamReader) ReadSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo, dataWriter io.Writer) (seriesFooter SeriesFooter, seriesSize int, checksumOk bool, err error) {
+func (sr *StreamReader) ReadSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo, seriesDataReader interface{}) (seriesFooter SeriesFooter, seriesSize int, checksumOk bool, err error) {
 	defer func() {
 		if state := recover(); state != nil {
 			err = log.Wrap(state.(error))
@@ -351,18 +352,47 @@ func (sr *StreamReader) ReadSeriesWithIndexedInfo(sisi StreamIndexedSequenceInfo
 	// Calculate the checksum.
 
 	fnv1a := fnv.New32a()
+	var fnvChecksum uint32
 
-	var finalWriter io.Writer
-	if dataWriter != nil {
-		finalWriter = io.MultiWriter(dataWriter, fnv1a)
+	bl := int64(seriesFooter.BytesLength())
+	lr := io.LimitReader(sr.rs, bl)
+
+	var copiedCount int64
+	if seriesDataReader != nil {
+		switch t := seriesDataReader.(type) {
+		case SeriesDataDatasourceReader:
+			// We were given a datasource-reader struct. Wrap the reader so
+			// that we still get the checksum when we delegate the reading to
+			// the caller.
+
+			rhp := ricrypto.NewReaderHash32Proxy(lr, fnv1a)
+
+			copiedCountRaw, err := t.ReadData(rhp, seriesFooter)
+			log.PanicIf(err)
+
+			copiedCount = int64(copiedCountRaw)
+
+			fnvChecksum = rhp.Sum32()
+		case io.Writer:
+			// We were given a writer. Combine the writer from the caller with
+			// the writer from the checksum function.
+			mw := io.MultiWriter(t, fnv1a)
+
+			copiedCount, err = io.Copy(mw, lr)
+			log.PanicIf(err)
+
+			fnvChecksum = fnv1a.Sum32()
+		}
 	} else {
-		finalWriter = fnv1a
+		copiedCount, err = io.Copy(fnv1a, lr)
+		log.PanicIf(err)
+
+		fnvChecksum = fnv1a.Sum32()
 	}
 
-	_, err = io.CopyN(finalWriter, sr.rs, int64(seriesFooter.BytesLength()))
-	log.PanicIf(err)
-
-	fnvChecksum := fnv1a.Sum32()
+	if copiedCount != bl {
+		log.Panicf("byte count copied does not equal byte count expected: (%d) != (%d)", copiedCount, bl)
+	}
 
 	checksumOk = fnvChecksum == seriesFooter.DataFnv1aChecksum()
 

@@ -39,7 +39,7 @@ func WriteTestStreamWithDatasource() (raw []byte, originalSeriesFooter *SeriesFo
 		sourceSha1)
 
 	dataReader := bytes.NewBuffer(TestTimeSeriesData)
-	sddw := NewSeriesDataDatasourceWrapperFromReader(dataReader)
+	sddw := NewSeriesDataDatasourceWriterWrapperFromReader(dataReader)
 
 	err := sb.AddSeries(sddw, originalSeriesFooter)
 	log.PanicIf(err)
@@ -334,8 +334,9 @@ func ExampleStreamBuilder_AddSeries_Reader() {
 // existing stream using `Iterate`). The `Updater` type may be used for more
 // intelligent updates.
 //
-// This example uses a `SeriesDataDatasource` to manage the writing process,
-// where we provide the writer and delegate the writing task to the caller.
+// This example uses a `SeriesDataDatasourceWriter` to manage the writing
+// process, where we provide the writer and delegate the writing task to the
+// caller.
 func ExampleStreamBuilder_AddSeries_Datasource() {
 	b := rifs.NewSeekableBuffer()
 
@@ -369,7 +370,7 @@ func ExampleStreamBuilder_AddSeries_Datasource() {
 	originalSeriesFooter1.uuid = "ca38f9e3-bdea-4bc8-9a8a-22681ea815b0"
 
 	dataReader1 := bytes.NewBuffer(TestTimeSeriesData)
-	sddw := NewSeriesDataDatasourceWrapperFromReader(dataReader1)
+	sddw := NewSeriesDataDatasourceWriterWrapperFromReader(dataReader1)
 
 	err := sb.AddSeries(sddw, originalSeriesFooter1)
 	log.PanicIf(err)
