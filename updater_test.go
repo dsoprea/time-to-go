@@ -237,6 +237,7 @@ func TestUpdater_AddSeries__DropOne(t *testing.T) {
 
 	expectedStats := UpdateStats{
 		Skips: 1,
+		Drops: 1,
 	}
 
 	if stats != expectedStats {
@@ -295,6 +296,7 @@ func TestUpdater_AddSeries__CopyForward(t *testing.T) {
 
 	expectedStats := UpdateStats{
 		Skips: 1,
+		Drops: 1,
 	}
 
 	if stats != expectedStats {

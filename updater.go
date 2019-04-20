@@ -265,10 +265,11 @@ func (updater *Updater) addExistingSeries(seriesFooter SeriesFooter, cps current
 type UpdateStats struct {
 	Skips int
 	Adds  int
+	Drops int
 }
 
 func (us UpdateStats) String() string {
-	return fmt.Sprintf("UpdateStats<SKIPS=(%d) ADDS=(%d)>", us.Skips, us.Adds)
+	return fmt.Sprintf("UpdateStats<SKIPS=(%d) ADDS=(%d) DROPS=(%d)>", us.Skips, us.Adds, us.Drops)
 }
 
 // Write executes the queued changes.
@@ -296,6 +297,7 @@ func (updater *Updater) Write() (totalSize int, stats UpdateStats, err error) {
 	sequencePosition := 0
 	anyChanges := false
 
+	hitsExisting := 0
 	for i, seriesFooter := range updater.newSeries {
 		sik := updateSeriesIndexingKey(seriesFooter)
 		if cps, isExisting := updater.knownSeriesIndex[sik]; isExisting == false {
@@ -306,8 +308,11 @@ func (updater *Updater) Write() (totalSize int, stats UpdateStats, err error) {
 
 			sequencePosition++
 			stats.Skips++
+			hitsExisting++
 		}
 	}
+
+	stats.Drops = len(updater.knownSeriesIndex) - hitsExisting
 
 	// Now, add all of the new/changed series to the back.
 
@@ -322,16 +327,43 @@ func (updater *Updater) Write() (totalSize int, stats UpdateStats, err error) {
 
 		sequencePosition++
 		stats.Adds++
+		anyChanges = true
 	}
 
-	totalSize, err = updater.sb.Finish()
-	log.PanicIf(err)
+	noopStats := UpdateStats{0, 0, 0}
+	if stats == noopStats {
+		updaterLogger.Debugf(nil, "No changes were made in the update. Not updating the stream footer.")
 
-	if truncater, ok := updater.rws.(Truncater); ok == true {
-		updaterLogger.Debugf(nil, "Underlying RWS is also a truncater. Truncating stream to right size after update.")
+		// Seek to the end so that we can still discover and get the length.
 
-		err = truncater.Truncate(int64(totalSize))
+		streamFooterHeadBytePosition, err := updater.rws.Seek(0, os.SEEK_CUR)
 		log.PanicIf(err)
+
+		err = updater.sr.Reset()
+		log.PanicIf(err)
+
+		_, _, footerBytes, footerOffset, err := updater.sr.readOneFooter()
+		log.PanicIf(err)
+
+		streamFooterHeadBytePosition = streamFooterHeadBytePosition
+		footerBytes = footerBytes
+		footerOffset = footerOffset
+
+		if streamFooterHeadBytePosition != footerOffset {
+			log.Panicf("after the no-op update, we expected to be on the head byte of the stream footer but weren't: (%d) != (%d)", streamFooterHeadBytePosition, footerOffset)
+		}
+
+		totalSize = int(footerOffset) + len(footerBytes) + ShadowFooterSize
+	} else {
+		totalSize, err = updater.sb.Finish()
+		log.PanicIf(err)
+
+		if truncater, ok := updater.rws.(Truncater); ok == true {
+			updaterLogger.Debugf(nil, "Underlying RWS is also a truncater. Truncating stream to right size after update.")
+
+			err = truncater.Truncate(int64(totalSize))
+			log.PanicIf(err)
+		}
 	}
 
 	return totalSize, stats, nil
