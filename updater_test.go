@@ -64,16 +64,22 @@ func TestUpdater_AddSeries_NoChange(t *testing.T) {
 }
 
 type SeriesDataTestGenerator struct {
+
+	// TODO(dustin): This no longer needs to be a io.ReadCloser . Just an io.Reader will do.
+
 	data map[string]io.ReadCloser
 }
 
-func (sdtg *SeriesDataTestGenerator) GetSerializeTimeSeriesData(seriesFooter SeriesFooter) (rc io.ReadCloser, err error) {
-	rc, found := sdtg.data[seriesFooter.Uuid()]
+func (sdtg *SeriesDataTestGenerator) WriteData(w io.Writer, sf SeriesFooter) (n int, err error) {
+	rc, found := sdtg.data[sf.Uuid()]
 	if found == false {
-		log.Panicf("footer data not found: %s", seriesFooter)
+		log.Panicf("footer data not found: %s", sf)
 	}
 
-	return rc, nil
+	count, err := io.Copy(w, rc)
+	log.PanicIf(err)
+
+	return int(count), nil
 }
 
 func TestUpdater_AddSeries_AddNew(t *testing.T) {

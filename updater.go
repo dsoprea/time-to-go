@@ -15,12 +15,6 @@ var (
 	updaterLogger = log.NewLogger("timetogo.updater")
 )
 
-// SerializeTimeSeriesDataGetter defines a type that is equipped to retrieve
-// time-series data given a UUID.
-type SerializeTimeSeriesDataGetter interface {
-	GetSerializeTimeSeriesData(seriesFooter SeriesFooter) (rc io.ReadCloser, err error)
-}
-
 type seriesIndexKey struct {
 	uuid       string
 	sourceSha1 string
@@ -31,10 +25,10 @@ type seriesIndexKey struct {
 // 1. Copy all unchanged series, in their current sequence, from where they
 //    currently are to the front of the file.
 //
-// 2. Use the getter interface to generate a serialized representation of the
-//    changed/new ones. Place them at the end in the order that they were stored
-//    before (those that are being updated) or in the order they were added (the
-//    new ones).
+// 2. Use the data-writer interface to generate a serialized representation of
+//    the changed/new ones. Place them at the end in the order that they were
+// 	  stored before (those that are being updated) or in the order they were
+//    added (the new ones).
 type Updater struct {
 	rws io.ReadWriteSeeker
 	it  *Iterator
@@ -43,8 +37,8 @@ type Updater struct {
 
 	br *rifs.BouncebackReader
 
-	getter    SerializeTimeSeriesDataGetter
-	newSeries []SeriesFooter
+	seriesDataWriter interface{}
+	newSeries        []SeriesFooter
 
 	knownSeriesIndex map[seriesIndexKey]currentPersistedSeries
 }
@@ -60,7 +54,7 @@ type currentPersistedSeries struct {
 }
 
 // NewUpdater returns a new `Updater` struct.
-func NewUpdater(rws io.ReadWriteSeeker, getter SerializeTimeSeriesDataGetter) *Updater {
+func NewUpdater(rws io.ReadWriteSeeker, seriesDataWriter interface{}) *Updater {
 	sr := NewStreamReader(rws)
 
 	br, err := rifs.NewBouncebackReader(rws)
@@ -113,7 +107,7 @@ func NewUpdater(rws io.ReadWriteSeeker, getter SerializeTimeSeriesDataGetter) *U
 		sr:               sr,
 		sb:               sb,
 		br:               br,
-		getter:           getter,
+		seriesDataWriter: seriesDataWriter,
 		knownSeriesIndex: knownSeriesIndex,
 		newSeries:        newSeries,
 	}
@@ -152,18 +146,13 @@ func (updater *Updater) appendNewSeries(seriesFooter SeriesFooter) (err error) {
 
 	// TODO(dustin): !! Add test.
 
-	if updater.getter == nil {
-		log.Panicf("data needed for series [%s] but no getter was provided", seriesFooter.Uuid())
+	if updater.seriesDataWriter == nil {
+		log.Panicf("data needed for series [%s] but no data-writer was provided", seriesFooter.Uuid())
 	}
-
-	rc, err := updater.getter.GetSerializeTimeSeriesData(seriesFooter)
-	log.PanicIf(err)
-
-	defer rc.Close()
 
 	updaterLogger.Debugf(nil, "appendNewSeries: Adding new series [%s].", seriesFooter.Uuid())
 
-	err = updater.sb.AddSeries(rc, seriesFooter)
+	err = updater.sb.AddSeries(updater.seriesDataWriter, seriesFooter)
 	log.PanicIf(err)
 
 	return nil

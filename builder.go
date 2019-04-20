@@ -3,6 +3,7 @@ package timetogo
 import (
 	"io"
 	"os"
+	"reflect"
 
 	"hash/fnv"
 
@@ -24,12 +25,9 @@ type StreamBuilder struct {
 
 // NewStreamBuilder returns a new `StreamBuilder`.
 func NewStreamBuilder(ws io.WriteSeeker) *StreamBuilder {
-	// TODO(dustin): !! Start returning an error value.
-
 	// We need this to make sure that our writes are always performd in the
 	// correct place. This enables us to copy existing data from later positions
 	// in the file.
-	// TODO(dustin): !! Move the writing to StreamWriter so we can both keep track of the file position, so we can keep track of the structure.
 
 	sw := NewStreamWriter(ws)
 	series := make([]SeriesFooter, 0)
@@ -58,10 +56,37 @@ func (sb *StreamBuilder) StreamWriter() *StreamWriter {
 	return sb.sw
 }
 
+type SeriesDataDatasource interface {
+	WriteData(w io.Writer, sf SeriesFooter) (n int, err error)
+}
+
+type SeriesDataDatasourceWrapper struct {
+	r io.Reader
+}
+
+func (sddww SeriesDataDatasourceWrapper) WriteData(w io.Writer, sf SeriesFooter) (n int, err error) {
+	defer func() {
+		if state := recover(); state != nil {
+			err = log.Wrap(state.(error))
+		}
+	}()
+
+	count, err := io.Copy(w, sddww.r)
+	log.PanicIf(err)
+
+	return int(count), nil
+}
+
+func NewSeriesDataDatasourceWrapperFromReader(r io.Reader) SeriesDataDatasourceWrapper {
+	return SeriesDataDatasourceWrapper{
+		r: r,
+	}
+}
+
 // AddSeries adds a single series and associated metadata to the stream. The
 // actual series data is provided to us by the caller in serialized (encoded)
 // form from whatever their original format was.
-func (sb *StreamBuilder) AddSeries(encodedSeriesDataReader io.Reader, sf SeriesFooter) (err error) {
+func (sb *StreamBuilder) AddSeries(seriesDataWriter interface{}, sf SeriesFooter) (err error) {
 	defer func() {
 		if state := recover(); state != nil {
 			err = log.Wrap(state.(error))
@@ -84,8 +109,20 @@ func (sb *StreamBuilder) AddSeries(encodedSeriesDataReader io.Reader, sf SeriesF
 
 	teeWriter := io.MultiWriter(sb.sw, fnv1a)
 
-	copiedCount, err := io.CopyBuffer(teeWriter, encodedSeriesDataReader, sb.copyBuffer)
-	log.PanicIf(err)
+	var copiedCount int
+	switch t := seriesDataWriter.(type) {
+	case SeriesDataDatasource:
+		var err error
+		copiedCount, err = t.WriteData(teeWriter, sf)
+		log.PanicIf(err)
+	case io.Reader:
+		n, err := io.Copy(teeWriter, t)
+		log.PanicIf(err)
+
+		copiedCount = int(n)
+	default:
+		log.Panicf("series-data writer is not the right type: %s", reflect.TypeOf(seriesDataWriter))
+	}
 
 	fnvChecksum := fnv1a.Sum32()
 
