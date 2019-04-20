@@ -20,6 +20,10 @@ type seriesIndexKey struct {
 	sourceSha1 string
 }
 
+type Truncater interface {
+	Truncate(size int64) error
+}
+
 // Updater manages syncing what the caller has with what is stored.
 //
 // 1. Copy all unchanged series, in their current sequence, from where they
@@ -93,9 +97,6 @@ func NewUpdater(rws io.ReadWriteSeeker, seriesDataWriter interface{}) *Updater {
 
 	// Now that we've enumerated the series, go back to the front of the stream
 	// so that we're in a position to begin stepping forward.
-	//
-	// TODO(dustin): !! This might not be enough. We might still need to seek at the top of AddSeries().
-	//
 	_, err = bw.Seek(0, os.SEEK_SET)
 	log.PanicIf(err)
 
@@ -312,12 +313,16 @@ func (updater *Updater) Write() (totalSize int, stats UpdateStats, err error) {
 		stats.Adds++
 	}
 
-	// TODO(dustin): !! The file will have to be truncated, but a bytes.Buffer object will not support this and we may have to refactor some tests.
-
 	totalSize, err = updater.sb.Finish()
 	log.PanicIf(err)
 
-	// TODO(dustin): !! Currently, the onus is on the caller to truncate the output file to the new size (if we've shrunk). See above.
+	if truncater, ok := updater.rws.(Truncater); ok == true {
+		updaterLogger.Debugf(nil, "Underlying RWS is also a truncater. Truncating stream to right size after update.")
+
+		err = truncater.Truncate(int64(totalSize))
+		log.PanicIf(err)
+	}
+
 	return totalSize, stats, nil
 }
 

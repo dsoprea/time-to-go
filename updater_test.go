@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"io/ioutil"
-
 	"github.com/dsoprea/go-logging"
 	"github.com/randomingenuity/go-utility/filesystem"
 )
@@ -64,10 +62,7 @@ func TestUpdater_AddSeries_NoChange(t *testing.T) {
 }
 
 type SeriesDataTestGenerator struct {
-
-	// TODO(dustin): This no longer needs to be a io.ReadCloser . Just an io.Reader will do.
-
-	data map[string]io.ReadCloser
+	data map[string]io.Reader
 }
 
 func (sdtg *SeriesDataTestGenerator) WriteData(w io.Writer, sf SeriesFooter) (n int, err error) {
@@ -104,11 +99,10 @@ func TestUpdater_AddSeries_AddNew(t *testing.T) {
 		sourceSha13)
 
 	dataReader3 := bytes.NewBuffer(TestTimeSeriesData2)
-	drc := ioutil.NopCloser(dataReader3)
 
 	sdtg := &SeriesDataTestGenerator{
-		data: map[string]io.ReadCloser{
-			sf3.Uuid(): drc,
+		data: map[string]io.Reader{
+			sf3.Uuid(): dataReader3,
 		},
 	}
 
@@ -226,6 +220,64 @@ func TestUpdater_AddSeries_AddNew(t *testing.T) {
 // TestUpdater_AddSeries__CopyForward drops the first series and induces
 // `Updater` to copy the data from the back of the stream to the front of the
 // stream.
+func TestUpdater_AddSeries__DropOne(t *testing.T) {
+	raw, series, _ := WriteTestMultiseriesStream()
+
+	// Update.
+
+	rws := rifs.NewSeekableBufferWithBytes(raw)
+	updater := NewUpdater(rws, nil)
+
+	// We add the second one instead of the first so we can guarantee a non-
+	// trivial operation.
+	updater.AddSeries(series[0])
+
+	totalSize, stats, err := updater.Write()
+	log.PanicIf(err)
+
+	expectedStats := UpdateStats{
+		Skips: 1,
+	}
+
+	if stats != expectedStats {
+		t.Fatalf("Stats not correct: %s", stats)
+	} else if totalSize != 337 {
+		t.Fatalf("Total stream size not correct: (%d)", totalSize)
+	}
+
+	finalRaw := rws.Bytes()
+
+	// Read back.
+
+	r := bytes.NewReader(finalRaw)
+	sr := NewStreamReader(r)
+
+	it, err := NewIterator(sr)
+	log.PanicIf(err)
+
+	if it.Count() != 1 {
+		t.Fatalf("The stream doesn't have exactly one series: (%d)", it.Count())
+	}
+
+	b := new(bytes.Buffer)
+
+	seriesFooter1, _, err := it.Iterate(b)
+	log.PanicIf(err)
+
+	if seriesFooter1.Uuid() != series[0].Uuid() {
+		t.Fatalf("First encountered series is not correct.")
+	}
+
+	dataBytes := b.Bytes()
+
+	if bytes.Compare(dataBytes, TestTimeSeriesData) != 0 {
+		t.Fatalf("Series 1 data not correct:\nACTUAL: %v\nEXPECTED: %v", dataBytes, TestTimeSeriesData)
+	}
+}
+
+// TestUpdater_AddSeries__CopyForward drops the first series and induces
+// `Updater` to copy the data from the back of the stream to the front of the
+// stream.
 func TestUpdater_AddSeries__CopyForward(t *testing.T) {
 	raw, series, _ := WriteTestMultiseriesStream()
 
@@ -252,9 +304,6 @@ func TestUpdater_AddSeries__CopyForward(t *testing.T) {
 	}
 
 	finalRaw := rws.Bytes()
-
-	// Truncate it to the correct size.
-	finalRaw = finalRaw[:totalSize]
 
 	// Read back.
 
@@ -328,11 +377,10 @@ func ExampleUpdater_AddSeries() {
 	series3.uuid = "9a0e2d13-d14f-4a57-b43c-24bd3de6581e"
 
 	dataReader3 := bytes.NewBuffer(TestTimeSeriesData2)
-	drc := ioutil.NopCloser(dataReader3)
 
 	sdtg := &SeriesDataTestGenerator{
-		data: map[string]io.ReadCloser{
-			series3.Uuid(): drc,
+		data: map[string]io.Reader{
+			series3.Uuid(): dataReader3,
 		},
 	}
 

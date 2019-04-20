@@ -10,21 +10,21 @@ Allows efficient persistence of multiple series of time-series data, efficient u
 
 # Use Case
 
-This project was primarily designed as an optimization when you have many data files that are expensively loaded into a time-series memory structure and would like to persist that data between invocations. To persist, that single time-series can be cut into several well-defined ranges of time (such as months or years), encoded (e.g. flatbuffers or gob) and stored to disk with `time-to-go` and then, on future invocations, loaded one series at a time, on demand. It should (and does) also accomodate updates to individual time-series if any source-data changes, without disrupting the others series, while also keeping all of this data in a single stream rather than a whole filesystem tree.
+This project was primarily designed as an optimization when you have many data files that are expensively loaded into a time-series memory structure and would like to persist that data between invocations. To persist, that single time-series can be cut into several well-defined ranges of time (such as months or years), encoded (e.g. flatbuffers or gob) and stored to disk with `time-to-go` and then, on future invocations, loaded one series at a time, on demand. It should (and does) also accomodate updates to individual time-series if any source-data changes, without disrupting the other series, while also keeping all of this data in a single stream rather than a whole filesystem tree.
 
-The time-series data itself is an arbitrary blob provided via an `io.Reader` given by the caller, but the caller will also provide series-data information such as head and tail timestamps, filename, record count, and data length.
+The time-series data itself is an arbitrary blob provided via a `Reader` given by the caller, along with head and tail timestamps, filename, record count, and data length.
 
 
 # Stream Structure
 
-Each series is followed by a series footer, which is followed by a brief "shadow" footer with a fotoer version and length, and each stream ends with a stream footer, followed by another shadow footer. The stream is read from back to stream, and summary information about all series are stored in the stream footer. So, it is very quick to determine which series will contain a certain timestamp and where those series are in the stream. This backwards-to-forwards methodology also allows for efficient updates.
+Each series is followed by a series footer, which is followed by a brief "shadow" footer describing a version and length, and each stream ends with a stream footer, followed by another shadow footer. The stream is read from back to front, and summary information about all series are stored in the stream footer. So, it is very quick to determine which series will contain a certain timestamp and where those series are in the stream. This backwards-to-forwards methodology is meant to optimize updates.
 
 
 # Update Complexity
 
-If an update is performed but none of the time-series stored at the front of the stream have been changed, no writes for those series are performed. If the update has only existing series in the order in which they already exist in the stream, only the stream footer is updated. If one or more series are dropped from the stream, then any following series that are to be kept will be copied directly from that older, later position in the stream to the newer, earlier position. In all of these cases, the caller is not required to provide the series data. The caller will know in advance whether or not they need to provide that data by which series it is passing into the update functionalty.
+If an update is performed but none of the time-series stored at the front of the stream have been changed, no writes for those series are performed. If we're only updating existing series and they're in the same order as in the stream, only the stream footer is updated. If one or more series are dropped from the stream, then any following series that are to be kept will be copied directly from that later position in the stream to the earlier position. In all of these cases, the caller is not required to provide the series data, and the caller will know in advance whether or not they need to provide that data by which series it is passing for the update.
 
 
 # Notes
 
-- An update on a stream may produce a smaller stream, but will be dealing with byte streams and will not be able to truncate the stream to a shorter size. It will be the caller's responsibility to truncate that stream (whether it's a byte slice, physical file, etc...) to the right length using the length returned by the update.
+- An update on a stream may produce a smaller stream, but will be dealing with byte streams and will not be able to truncate the stream to a shorter size. There is a `Truncater` interface defined that matches the [Truncate()](https://golang.org/pkg/os/#File.Truncate) method on `File`. If the `ReadWriteSeeker` struct that is passed into `Updater` also satisfies the `Truncater` interface, it will automatically be truncated. Otherwise, it will be the caller's responsibility to truncate that stream (whether it's a byte slice, physical file, etc...) to the right length using the length returned by the update.
