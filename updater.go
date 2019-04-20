@@ -20,6 +20,8 @@ type seriesIndexKey struct {
 	sourceSha1 string
 }
 
+// Truncater is a type that knows how to truncate its bytes stream. This will
+// frequently be paired with a `io.ReadWriteSeeker`.
 type Truncater interface {
 	Truncate(size int64) error
 }

@@ -56,6 +56,8 @@ func DumpBytes(description string, rs io.ReadSeeker, position int64, count int, 
 	fmt.Printf("\n")
 }
 
+// WriteTestMultiseriesStream creates a stream with multiple test-series and
+// validates that it looks okay before returning.
 func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1, sb *StreamBuilder) {
 	b := rifs.NewSeekableBuffer()
 
@@ -165,6 +167,7 @@ func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1, sb *Str
 	return raw, series, sb
 }
 
+// AddTestSeries will append two test series to the given builder.
 func AddTestSeries(sb *StreamBuilder) (footers []*SeriesFooter1) {
 	// Add first series.
 

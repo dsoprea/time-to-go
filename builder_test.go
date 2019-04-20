@@ -12,7 +12,7 @@ import (
 	"github.com/randomingenuity/go-utility/filesystem"
 )
 
-func WriteTestStream_Datasource() (raw []byte, originalSeriesFooter *SeriesFooter1, seriesSize int64) {
+func WriteTestStreamWithDatasource() (raw []byte, originalSeriesFooter *SeriesFooter1, seriesSize int64) {
 	b := rifs.NewSeekableBuffer()
 
 	// Stage stream.
@@ -61,7 +61,7 @@ func WriteTestStream_Datasource() (raw []byte, originalSeriesFooter *SeriesFoote
 	return raw, originalSeriesFooter, seriesSize
 }
 
-func WriteTestStream_Reader() (raw []byte, originalSeriesFooter *SeriesFooter1, seriesSize int64) {
+func WriteTestStreamWithReader() (raw []byte, originalSeriesFooter *SeriesFooter1, seriesSize int64) {
 	b := rifs.NewSeekableBuffer()
 
 	// Stage stream.
@@ -110,7 +110,7 @@ func WriteTestStream_Reader() (raw []byte, originalSeriesFooter *SeriesFooter1, 
 }
 
 func TestBuilder_Finish_Reader(t *testing.T) {
-	raw, originalSeriesFooter, seriesSize := WriteTestStream_Reader()
+	raw, originalSeriesFooter, seriesSize := WriteTestStreamWithReader()
 
 	// Validate stream.
 
@@ -173,7 +173,7 @@ func TestBuilder_Finish_Reader(t *testing.T) {
 }
 
 func TestBuilder_Finish_Datasource(t *testing.T) {
-	raw, originalSeriesFooter, seriesSize := WriteTestStream_Datasource()
+	raw, originalSeriesFooter, seriesSize := WriteTestStreamWithDatasource()
 
 	// Validate stream.
 
