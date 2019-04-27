@@ -3,8 +3,14 @@ package timetogo
 import (
     "io"
 
+    "encoding/gob"
+
     "github.com/dsoprea/go-logging"
 )
+
+// >>>>>>>>>>>>>>>>>>>>>
+// Datasource interfaces
+// <<<<<<<<<<<<<<<<<<<<<
 
 // SeriesDataDatasourceWriter can be provided by the caller to write the series-
 // data themselves if an `io.Reader` is too simple for them.
@@ -47,6 +53,9 @@ type SeriesDataDatasourceReader interface {
     ReadData(r io.Reader, sf SeriesFooter) (n int, err error)
 }
 
+// SeriesDataDatasourceReaderWrapper wraps a simple `io.Writer` and satisfies
+// the `SeriesDataDatasourceReader` interface. It essentially converts a writer
+// to a reader. This may not have a practical use, but we use it for testing.
 type SeriesDataDatasourceReaderWrapper struct {
     w io.Writer
 }
@@ -71,4 +80,66 @@ func NewSeriesDataDatasourceReaderWrapperFromWriter(w io.Writer) SeriesDataDatas
     return SeriesDataDatasourceReaderWrapper{
         w: w,
     }
+}
+
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+// gob encoder/decoder single-object wrapper
+// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+// GobSingleObjectDecoderDatasource wraps a `gob.Decoder` as a `SeriesDataDatasourceReader`.
+type GobSingleObjectDecoderDatasource struct {
+    outputValue interface{}
+}
+
+// NewGobSingleObjectDecoderDatasource returns a new `GobSingleObjectDecoderDatasource` struct.
+func NewGobSingleObjectDecoderDatasource(outputValue interface{}) *GobSingleObjectDecoderDatasource {
+    return &GobSingleObjectDecoderDatasource{
+        outputValue: outputValue,
+    }
+}
+
+// ReadData is called when series data needs to be read and decodes the raw
+// series-data into the struct that we were initialized with.
+func (gdd *GobSingleObjectDecoderDatasource) ReadData(r io.Reader, sf SeriesFooter) (n int, err error) {
+    defer func() {
+        if state := recover(); state != nil {
+            err = log.Wrap(state.(error))
+        }
+    }()
+
+    d := gob.NewDecoder(r)
+
+    err = d.Decode(gdd.outputValue)
+    log.PanicIf(err)
+
+    return -1, nil
+}
+
+// GobSingleObjectEncoderDatasource wraps a `gob.Encoder` as a `SeriesDataDatasourceWriter`.
+type GobSingleObjectEncoderDatasource struct {
+    inputValue interface{}
+}
+
+// NewGobSingleObjectEncoderDatasource returns a new GobSingleObjectEncoderDatasource struct.
+func NewGobSingleObjectEncoderDatasource(inputValue interface{}) *GobSingleObjectEncoderDatasource {
+    return &GobSingleObjectEncoderDatasource{
+        inputValue: inputValue,
+    }
+}
+
+// WriteData is called when series data needs to be written and encodes the
+// struct that we were initialized with into the writer we are given.
+func (ged GobSingleObjectEncoderDatasource) WriteData(w io.Writer, sf SeriesFooter) (n int, err error) {
+    defer func() {
+        if state := recover(); state != nil {
+            err = log.Wrap(state.(error))
+        }
+    }()
+
+    e := gob.NewEncoder(w)
+
+    err = e.Encode(ged.inputValue)
+    log.PanicIf(err)
+
+    return n, nil
 }
