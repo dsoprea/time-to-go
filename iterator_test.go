@@ -67,6 +67,12 @@ func TestNewIterator_Iterate(t *testing.T) {
 
 	recoveredSeriesFooter2 := seriesFooterInterface2.(*SeriesFooter1)
 
+	if originalFooters[1].createdTime.IsZero() == true {
+		t.Fatalf("series 1 'createdTime' is empty.")
+	} else if originalFooters[1].updatedTime.IsZero() == true {
+		t.Fatalf("series 1 'updatedTime' is empty.")
+	}
+
 	originalFooters[1].createdTime = recoveredSeriesFooter2.createdTime
 	originalFooters[1].updatedTime = recoveredSeriesFooter2.updatedTime
 	originalFooters[1].dataFnv1aChecksum = 0xba7ac887
