@@ -83,9 +83,10 @@ func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1, sb *Str
 	originalSeriesFooter1 := NewSeriesFooter1(
 		headRecordTime,
 		tailRecordTime,
-		uint64(len(TestTimeSeriesData)),
 		22,
 		sourceSha1)
+
+	originalSeriesFooter1.SetBytesLength(uint64(len(TestTimeSeriesData)))
 
 	dataReader1 := bytes.NewBuffer(TestTimeSeriesData)
 
@@ -109,9 +110,10 @@ func WriteTestMultiseriesStream() (raw []byte, footers []*SeriesFooter1, sb *Str
 	originalSeriesFooter2 := NewSeriesFooter1(
 		headRecordTime.Add(time.Second*10),
 		tailRecordTime.Add(time.Second*10),
-		uint64(len(TestTimeSeriesData2)),
 		33,
 		sourceSha12)
+
+	originalSeriesFooter2.SetBytesLength(uint64(len(TestTimeSeriesData2)))
 
 	dataReader2 := bytes.NewBuffer(TestTimeSeriesData2)
 
@@ -184,9 +186,10 @@ func AddTestSeries(sb *StreamBuilder) (footers []*SeriesFooter1) {
 	originalSeriesFooter1 := NewSeriesFooter1(
 		headRecordTime,
 		tailRecordTime,
-		uint64(len(TestTimeSeriesData)),
 		22,
 		sourceSha1)
+
+	originalSeriesFooter1.SetBytesLength(uint64(len(TestTimeSeriesData)))
 
 	// Force a specific UUID so we know the exact output in support of the
 	// testable examples.
@@ -208,9 +211,10 @@ func AddTestSeries(sb *StreamBuilder) (footers []*SeriesFooter1) {
 	originalSeriesFooter2 := NewSeriesFooter1(
 		headRecordTime.Add(time.Second*10),
 		tailRecordTime.Add(time.Second*10),
-		uint64(len(TestTimeSeriesData2)),
 		33,
 		sourceSha12)
+
+	originalSeriesFooter2.SetBytesLength(uint64(len(TestTimeSeriesData2)))
 
 	// Force a specific UUID so we know the exact output in support of the
 	// testable examples.

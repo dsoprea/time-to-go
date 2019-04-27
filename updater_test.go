@@ -97,9 +97,10 @@ func TestUpdater_AddSeries_AddNew(t *testing.T) {
 	sf3 := NewSeriesFooter1(
 		now.Add(time.Second*10),
 		now.Add(time.Second*20),
-		uint64(len(TestTimeSeriesData2)),
 		33,
 		sourceSha13)
+
+	sf3.SetBytesLength(uint64(len(TestTimeSeriesData2)))
 
 	dataReader3 := bytes.NewBuffer(TestTimeSeriesData2)
 
@@ -394,9 +395,10 @@ func ExampleUpdater_AddSeries() {
 	series3 := NewSeriesFooter1(
 		now.Add(time.Second*20),
 		now.Add(time.Second*30),
-		uint64(len(TestTimeSeriesData2)),
 		33,
 		sourceSha13)
+
+	series3.SetBytesLength(uint64(len(TestTimeSeriesData2)))
 
 	// Force a specific UUID so we know the exact output in support of the
 	// testable examples.
@@ -510,9 +512,10 @@ func TestUpdater_AddSeries_FromEmpty(t *testing.T) {
 	sf1 := NewSeriesFooter1(
 		now.Add(time.Second*10),
 		now.Add(time.Second*20),
-		uint64(len(TestTimeSeriesData2)),
 		33,
 		sourceSha13)
+
+	sf1.SetBytesLength(uint64(len(TestTimeSeriesData2)))
 
 	dataReader1 := bytes.NewBuffer(TestTimeSeriesData2)
 

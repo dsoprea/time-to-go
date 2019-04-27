@@ -82,28 +82,28 @@ func (sb *StreamBuilder) AddSeries(seriesDataWriter interface{}, sf SeriesFooter
 
 	teeWriter := io.MultiWriter(sb.sw, fnv1a)
 
-	var copiedCount int
+	var copiedCount uint64
 	switch t := seriesDataWriter.(type) {
 	case SeriesDataDatasourceWriter:
 		var err error
-		copiedCount, err = t.WriteData(teeWriter, sf)
+		n, err := t.WriteData(teeWriter, sf)
 		log.PanicIf(err)
+
+		copiedCount = uint64(n)
+
 	case io.Reader:
 		n, err := io.Copy(teeWriter, t)
 		log.PanicIf(err)
 
-		copiedCount = int(n)
+		copiedCount = uint64(n)
+
 	default:
 		log.Panicf("series-data writer is not the right type: %s", reflect.TypeOf(seriesDataWriter))
 	}
 
 	fnvChecksum := fnv1a.Sum32()
 
-	// Make sure we copied as much as we expected to.
-	expectedCount := sf.BytesLength()
-	if uint64(copiedCount) != expectedCount {
-		log.Panicf("copied data size (%d) does not equal expected size (%d)", copiedCount, expectedCount)
-	}
+	sf.SetBytesLength(uint64(copiedCount))
 
 	footerSize, err := sb.sw.writeSeriesFooter1(sf, fnvChecksum)
 	log.PanicIf(err)

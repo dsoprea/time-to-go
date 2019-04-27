@@ -33,9 +33,10 @@ func WriteTestSeriesFooter1(w io.Writer, sw *StreamWriter) (sfOriginal *SeriesFo
 		NewSeriesFooter1(
 			headRecordTime,
 			tailRecordTime,
-			uint64(len(TestTimeSeriesData)),
 			22,
 			sourceSha1)
+
+	sfOriginal.SetBytesLength(uint64(len(TestTimeSeriesData)))
 
 	// Make sure we actually have a UUID.
 	_, err = uuid.Parse(sfOriginal.Uuid())

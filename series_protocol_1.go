@@ -46,9 +46,11 @@ type SeriesFooter1 struct {
 	dataFnv1aChecksum uint32
 }
 
+// TODO(dustin): !! We should be versioning the API and the data structure. They shouldn't necessarily be the same thing. We might change the on-disk representation without touching the API call that is called from external.
+
 // NewSeriesFooter1 returns a series footer structure. Version 1. The checksum
 // will be populated on write.
-func NewSeriesFooter1(headRecordTime time.Time, tailRecordTime time.Time, bytesLength, recordCount uint64, sourceSha1 []byte) *SeriesFooter1 {
+func NewSeriesFooter1(headRecordTime time.Time, tailRecordTime time.Time, recordCount uint64, sourceSha1 []byte) *SeriesFooter1 {
 	uuid := uuid.New().String()
 
 	now := time.Now().UTC()
@@ -58,12 +60,15 @@ func NewSeriesFooter1(headRecordTime time.Time, tailRecordTime time.Time, bytesL
 		uuid:           uuid,
 		headRecordTime: headRecordTime.UTC(),
 		tailRecordTime: tailRecordTime.UTC(),
-		bytesLength:    bytesLength,
 		recordCount:    recordCount,
 		createdTime:    now,
 		updatedTime:    now,
 		sourceSha1:     sourceSha1,
 	}
+}
+
+func (sf *SeriesFooter1) SetBytesLength(bytesLength uint64) {
+	sf.bytesLength = bytesLength
 }
 
 // NewSeriesFooter1FromEncoded returns a series footer struct (version 1). The

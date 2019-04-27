@@ -76,6 +76,10 @@ type SeriesFooter interface {
 
 	// TouchUpdatedTime sets the 'updated time' field to now.
 	TouchUpdatedTime()
+
+	// SetBytesLength is used to set the bytes-length after the data is written
+	// and the count is attained.
+	SetBytesLength(bytesLength uint64)
 }
 
 // StreamIndexedSequenceInfo describes summary information for a single series

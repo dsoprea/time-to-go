@@ -34,9 +34,10 @@ func WriteTestStreamWithDatasource() (raw []byte, originalSeriesFooter *SeriesFo
 	originalSeriesFooter = NewSeriesFooter1(
 		headRecordTime,
 		tailRecordTime,
-		uint64(len(TestTimeSeriesData)),
 		22,
 		sourceSha1)
+
+	originalSeriesFooter.SetBytesLength(uint64(len(TestTimeSeriesData)))
 
 	dataReader := bytes.NewBuffer(TestTimeSeriesData)
 	sddw := NewSeriesDataDatasourceWriterWrapperFromReader(dataReader)
@@ -82,9 +83,10 @@ func WriteTestStreamWithReader() (raw []byte, originalSeriesFooter *SeriesFooter
 	originalSeriesFooter = NewSeriesFooter1(
 		headRecordTime,
 		tailRecordTime,
-		uint64(len(TestTimeSeriesData)),
 		22,
 		sourceSha1)
+
+	originalSeriesFooter.SetBytesLength(uint64(len(TestTimeSeriesData)))
 
 	dataReader := bytes.NewBuffer(TestTimeSeriesData)
 
@@ -268,9 +270,10 @@ func ExampleStreamBuilder_AddSeries_Reader() {
 	originalSeriesFooter1 := NewSeriesFooter1(
 		headRecordTime,
 		tailRecordTime,
-		uint64(len(TestTimeSeriesData)),
 		22,
 		sourceSha1)
+
+	originalSeriesFooter1.SetBytesLength(uint64(len(TestTimeSeriesData)))
 
 	// Force a specific UUID so we know what to expect below.
 	originalSeriesFooter1.uuid = "ca38f9e3-bdea-4bc8-9a8a-22681ea815b0"
@@ -291,9 +294,10 @@ func ExampleStreamBuilder_AddSeries_Reader() {
 	originalSeriesFooter2 := NewSeriesFooter1(
 		headRecordTime.Add(time.Second*10),
 		tailRecordTime.Add(time.Second*10),
-		uint64(len(TestTimeSeriesData2)),
 		33,
 		sourceSha12)
+
+	originalSeriesFooter2.SetBytesLength(uint64(len(TestTimeSeriesData2)))
 
 	// Force a specific UUID so we know what to expect below.
 	originalSeriesFooter2.uuid = "1616bda4-c570-4d05-a346-674e4c051460"
@@ -362,9 +366,10 @@ func ExampleStreamBuilder_AddSeries_Datasource() {
 	originalSeriesFooter1 := NewSeriesFooter1(
 		headRecordTime,
 		tailRecordTime,
-		uint64(len(TestTimeSeriesData)),
 		22,
 		sourceSha1)
+
+	originalSeriesFooter1.SetBytesLength(uint64(len(TestTimeSeriesData)))
 
 	// Force a specific UUID so we know what to expect below.
 	originalSeriesFooter1.uuid = "ca38f9e3-bdea-4bc8-9a8a-22681ea815b0"
@@ -386,9 +391,10 @@ func ExampleStreamBuilder_AddSeries_Datasource() {
 	originalSeriesFooter2 := NewSeriesFooter1(
 		headRecordTime.Add(time.Second*10),
 		tailRecordTime.Add(time.Second*10),
-		uint64(len(TestTimeSeriesData2)),
 		33,
 		sourceSha12)
+
+	originalSeriesFooter2.SetBytesLength(uint64(len(TestTimeSeriesData2)))
 
 	// Force a specific UUID so we know what to expect below.
 	originalSeriesFooter2.uuid = "1616bda4-c570-4d05-a346-674e4c051460"
