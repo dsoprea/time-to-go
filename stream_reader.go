@@ -408,8 +408,17 @@ func (sr *StreamReader) Reset() (err error) {
 		}
 	}()
 
+	// First, seek to the end. Seeking to -1 will produce an error like "seek
+	// <filepath>: invalid argument".
+	filesize, err := sr.rs.Seek(0, os.SEEK_END)
+	log.PanicIf(err)
+
+	if filesize == 0 {
+		return io.EOF
+	}
+
 	// Put us on the trailing NUL byte.
-	_, err = sr.rs.Seek(-1, os.SEEK_END)
+	filesize, err = sr.rs.Seek(-1, os.SEEK_END)
 	log.PanicIf(err)
 
 	return nil
