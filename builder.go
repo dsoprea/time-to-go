@@ -91,11 +91,19 @@ func (sb *StreamBuilder) AddSeries(seriesDataWriter interface{}, sf SeriesFooter
 
 		copiedCount = uint64(n)
 
+		if copiedCount == 0 {
+			log.Panicf("SeriesDataDatasourceWriter reported writing zero bytes")
+		}
+
 	case io.Reader:
 		n, err := io.Copy(teeWriter, t)
 		log.PanicIf(err)
 
 		copiedCount = uint64(n)
+
+		if copiedCount == 0 {
+			log.Panicf("copy reported writing zero bytes")
+		}
 
 	default:
 		log.Panicf("series-data writer is not the right type: %s", reflect.TypeOf(seriesDataWriter))
