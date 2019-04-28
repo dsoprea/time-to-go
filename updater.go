@@ -324,7 +324,7 @@ func (updater *Updater) Write() (totalSize int, stats UpdateStats, err error) {
 			continue
 		}
 
-		err := updater.appendNewSeries(seriesFooter)
+		err = updater.appendNewSeries(seriesFooter)
 		log.PanicIf(err)
 
 		sequencePosition++

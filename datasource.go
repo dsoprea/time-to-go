@@ -6,6 +6,7 @@ import (
     "encoding/gob"
 
     "github.com/dsoprea/go-logging"
+    "github.com/randomingenuity/go-utility/filesystem"
 )
 
 // >>>>>>>>>>>>>>>>>>>>>
@@ -107,12 +108,13 @@ func (gdd *GobSingleObjectDecoderDatasource) ReadData(r io.Reader, sf SeriesFoot
         }
     }()
 
-    d := gob.NewDecoder(r)
+    rc := rifs.NewReadCounter(r)
+    d := gob.NewDecoder(rc)
 
     err = d.Decode(gdd.outputValue)
     log.PanicIf(err)
 
-    return -1, nil
+    return rc.Count(), nil
 }
 
 // GobSingleObjectEncoderDatasource wraps a `gob.Encoder` as a `SeriesDataDatasourceWriter`.
@@ -136,10 +138,11 @@ func (ged GobSingleObjectEncoderDatasource) WriteData(w io.Writer, sf SeriesFoot
         }
     }()
 
-    e := gob.NewEncoder(w)
+    wc := rifs.NewWriteCounter(w)
+    e := gob.NewEncoder(wc)
 
     err = e.Encode(ged.inputValue)
     log.PanicIf(err)
 
-    return n, nil
+    return wc.Count(), nil
 }
